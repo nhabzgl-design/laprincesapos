@@ -57,17 +57,23 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      # This step runs only after the owner has configured all four signing secrets.
+      # GitHub does not allow secrets directly in an if expression.
+      # This step checks them safely and exposes only a true/false output.
       - name: Prepare private release keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        id: signing
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app/lp-release.jks
-          test -s app/lp-release.jks
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ] && [ -n "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" ] && [ -n "${{ secrets.ANDROID_KEY_ALIAS }}" ] && [ -n "${{ secrets.ANDROID_KEY_PASSWORD }}" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > app/lp-release.jks
+            test -s app/lp-release.jks
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Build signed release APK
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        if: steps.signing.outputs.available == 'true'
         env:
           ANDROID_KEYSTORE_FILE: app/lp-release.jks
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -76,7 +82,7 @@ jobs:
         run: gradle --no-daemon :app:assembleRelease --stacktrace
 
       - name: Upload signed release APK
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: LaPrincesa-Release-APK
