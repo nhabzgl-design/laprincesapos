@@ -9,7 +9,18 @@ android {
     versionCode 1
     versionName '1.0'
   }
-  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
   buildTypes { release { minifyEnabled false } }
+  lint {
+    // Temporarily skip release lint while using AGP 8.1.4 with Gradle 8.0.2.
+    // APK compilation and packaging remain enabled.
+    checkReleaseBuilds false
+  }
 }
-dependencies { implementation 'androidx.appcompat:appcompat:1.6.1' }
+dependencies {
+  implementation 'androidx.appcompat:appcompat:1.6.1'
+  implementation 'androidx.webkit:webkit:1.10.0'
+}
