@@ -44,13 +44,15 @@ jobs:
           cp index.html app/src/main/assets/index.html
           test -s app/src/main/assets/index.html
 
-      - name: Build release APK
-        run: gradle --no-daemon :app:assembleRelease --stacktrace
+      # Debug APKs are automatically signed with Android's debug keystore.
+      # This artifact is for device testing, not production distribution.
+      - name: Build installable debug APK
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: LaPrincesa-Native-APK
-          path: app/build/outputs/apk/release/*.apk
+          path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
