@@ -38,6 +38,12 @@ jobs:
         with:
           gradle-version: '8.0.2'
 
+      - name: Prepare bundled POS HTML
+        run: |
+          mkdir -p app/src/main/assets
+          cp index.html app/src/main/assets/index.html
+          test -s app/src/main/assets/index.html
+
       - name: Build release APK
         run: gradle --no-daemon :app:assembleRelease --stacktrace
 
