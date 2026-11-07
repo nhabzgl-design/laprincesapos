@@ -3280,29 +3280,57 @@ Thank you! Iwan na sa amin, Linis na, Tipid Pa!`})]})]})]})]})}),a("footer",{cla
 <script id="bt-printer">
 (function(){
 var SV=['000018f0-0000-1000-8000-00805f9b34fb','e7810a71-73ae-499d-8c15-faa9aef0c3f2','49535343-fe7d-4ae5-8fa9-9fafd205e455','0000ff00-0000-1000-8000-00805f9b34fb','0000ffe0-0000-1000-8000-00805f9b34fb','0000fee7-0000-1000-8000-00805f9b34fb','0000ffb0-0000-1000-8000-00805f9b34fb'];
-var ch=null,dev=null,W=32;
-function ok(){return !!(navigator.bluetooth)}
+var ch=null,dev=null,nativeConnected=false;
+function nativeAvailable(){return !!(window.NativePrinter&&typeof window.NativePrinter.connect==='function'&&typeof window.NativePrinter.printBase64==='function')}
 function toast(t){var d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:99999;background:#111;color:#fff;padding:10px 14px;border-radius:12px;font:600 13px system-ui;max-width:90%';document.body.appendChild(d);setTimeout(function(){d.remove()},3500)}
-function ui(){var b=document.getElementById('bt-conn');if(b){b.textContent=ch?'🖨 Printer: Connected':'🖨 Connect Printer';b.className=ch?'on':''}}
+function ui(){var b=document.getElementById('bt-conn');if(b){var on=nativeConnected||(ch&&dev&&dev.gatt&&dev.gatt.connected);b.textContent=on?'🖨 Printer: Connected':'🖨 Connect Printer';b.className=on?'on':''}}
+function nativeConnect(){
+ try{
+  var list=JSON.parse(window.NativePrinter.listPrinters()||'[]');
+  if(!list.length){toast('Walang paired Bluetooth printer. I-pair muna sa Android Bluetooth Settings.');return false}
+  var mac=list[0].mac;
+  if(list.length>1){
+   var choices=list.map(function(p,i){return (i+1)+'. '+(p.name||'Bluetooth Printer')+' ('+p.mac+')'}).join('\n');
+   var answer=window.prompt('Piliin ang printer sa pamamagitan ng numero:\n'+choices,'1');
+   if(answer===null)return false;
+   var index=parseInt(answer,10)-1;
+   if(!Number.isInteger(index)||index<0||index>=list.length){toast('Hindi valid ang napiling printer');return false}
+   mac=list[index].mac;
+  }
+  nativeConnected=!!window.NativePrinter.connect(mac);
+  if(nativeConnected)toast('Native Bluetooth printer connected');
+  else toast('Hindi makakonekta. Tiyaking naka-on at paired ang printer.');
+  ui();return nativeConnected;
+ }catch(e){toast('Bluetooth error: '+(e&&e.message||e));return false}
+}
 async function connect(){
+ if(nativeAvailable())return nativeConnect();
  if(ch&&dev&&dev.gatt.connected)return true;
- if(!ok()){toast('Walang Web Bluetooth sa browser/link na ito. Gamitin ang RawBT app o i-host sa https.');return false}
+ if(!navigator.bluetooth){toast('Hindi available ang Web Bluetooth. Sa Android APK, gamitin ang native printer connection.');return false}
  try{
   dev=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:SV});
   dev.addEventListener('gattserverdisconnected',function(){ch=null;ui()});
   var srv=await dev.gatt.connect(),svcs=await srv.getPrimaryServices();
   for(var i=0;i<svcs.length&&!ch;i++){var cs=await svcs[i].getCharacteristics();for(var j=0;j<cs.length;j++){if(cs[j].properties.write||cs[j].properties.writeWithoutResponse){ch=cs[j];break}}}
-  if(!ch){toast('Walang writable na printer channel. Baka classic Bluetooth ang printer—gamitin ang RawBT.');return false}
+  if(!ch){toast('Walang writable na printer channel. Para sa classic Bluetooth, gamitin ang native Android APK.');return false}
   ui();toast('Printer connected');return true
  }catch(e){toast('Hindi naka-connect: '+(e&&e.message||e));return false}
 }
 async function send(bytes){
- if(ch){var n=100;try{for(var i=0;i<bytes.length;i+=n){var p=bytes.slice(i,i+n);if(ch.properties.writeWithoutResponse)await ch.writeValueWithoutResponse(p);else await ch.writeValue(p);await new Promise(function(r){setTimeout(r,25)})}return true}catch(e){toast('Print error: '+e.message);return false}}
+ if(nativeAvailable()){
+  try{
+   if(!nativeConnected&&!nativeConnect())return false;
+   var binary='';for(var i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]&255);
+   return !!window.NativePrinter.printBase64(btoa(binary));
+  }catch(e){toast('Native print error: '+(e&&e.message||e));return false}
+ }
+ if(ch){var n=100;try{for(var j=0;j<bytes.length;j+=n){var p=bytes.slice(j,j+n);if(ch.properties.writeWithoutResponse)await ch.writeValueWithoutResponse(p);else await ch.writeValue(p);await new Promise(function(r){setTimeout(r,25)})}return true}catch(e){toast('Print error: '+e.message);return false}}
  return false
 }
 function raw(bytes){var s='';bytes.forEach(function(b){s+=String.fromCharCode(b)});location.href='rawbt:base64,'+btoa(s)}
 async function out(bytes){
- if(ok()){if(await connect())return send(bytes);return false}
+ if(nativeAvailable())return send(bytes);
+ if(navigator.bluetooth){if(await connect())return send(bytes);return false}
  raw(bytes);return true
 }
 function enc(str){var a=[];for(var i=0;i<str.length;i++){var c=str.charCodeAt(i);a.push(c<128?c:63)}return a}
@@ -3315,8 +3343,7 @@ function findReceipt(){var r=null;document.querySelectorAll('div').forEach(funct
 window.printReceiptOnly=async function(){
  var el=findReceipt();if(!el){toast('Hindi makita ang resibo');return}
  var lines=el.innerText.split('\n').map(function(l){return l.trim()}).filter(Boolean);
- var ok2=await out(text2bytes(lines.join('\n')));
- if(ok2===false&&!ok()){}
+ await out(text2bytes(lines.join('\n')));
 };
 function mount(){if(document.getElementById('bt-fab'))return;var f=document.createElement('div');f.id='bt-fab';f.innerHTML='<button id="bt-conn">🖨 Connect Printer</button>';document.body.appendChild(f);document.getElementById('bt-conn').onclick=connect}
 if(document.readyState!=='loading')mount();else document.addEventListener('DOMContentLoaded',mount);
