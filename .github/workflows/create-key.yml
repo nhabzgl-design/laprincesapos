@@ -1,1 +1,20 @@
-
+name: Create Signing Key
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  key:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make keystore
+        run: |
+          if [ -f app/lp-release.jks ]; then echo "Key exists"; exit 0; fi
+          keytool -genkeypair -keystore app/lp-release.jks -storepass laprincesa2026 -keypass laprincesa2026 -alias lp -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=La Princesa POS, C=PH"
+      - name: Commit key
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add app/lp-release.jks
+          git commit -m "Add signing key" || exit 0
+          git push
