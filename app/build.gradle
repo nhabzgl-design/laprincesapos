@@ -13,17 +13,10 @@ android {
     sourceCompatibility JavaVersion.VERSION_17
     targetCompatibility JavaVersion.VERSION_17
   }
-  sourceSets {
-    main {
-      assets.srcDirs = ['../']
-      assets.include 'index.html'
-    }
-  }
   buildTypes { release { minifyEnabled false } }
   lint {
-    // AGP 8.1.4 has a release lint task dependency-validation issue with
-    // this Gradle setup. Keep the APK compile/package checks enabled while
-    // disabling only the release-time lint gate; revisit after upgrading AGP.
+    // Temporarily skip release lint while using AGP 8.1.4 with Gradle 8.0.2.
+    // APK compilation and packaging remain enabled.
     checkReleaseBuilds false
   }
 }
