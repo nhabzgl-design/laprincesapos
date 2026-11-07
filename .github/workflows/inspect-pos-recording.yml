@@ -29,8 +29,8 @@ jobs:
           VIDEO="Screen_Recording_20261108_040630.mp4"
           test -f "$VIDEO"
           ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$VIDEO" > diagnostics/pos-recording-duration.txt
-          ffmpeg -hide_banner -loglevel error -i "$VIDEO" -vf "fps=1/3,scale=480:-1:flags=lanczos" -q:v 3 diagnostics/pos-recording-frames/frame-%03d.jpg
-          ffmpeg -hide_banner -loglevel error -pattern_type glob -i 'diagnostics/pos-recording-frames/*.jpg' -vf "tile=4x4:padding=12:margin=12:color=white" -frames:v 1 diagnostics/pos-recording-contact-sheet.jpg
+          ffmpeg -hide_banner -loglevel error -i "$VIDEO" -vf "fps=1,scale=480:-1:flags=lanczos" -q:v 3 diagnostics/pos-recording-frames/frame-%03d.jpg
+          ffmpeg -hide_banner -loglevel error -pattern_type glob -i 'diagnostics/pos-recording-frames/*.jpg' -vf "tile=3x6:padding=12:margin=12:color=white" -frames:v 1 diagnostics/pos-recording-contact-sheet.jpg
           ls -lh diagnostics/pos-recording-contact-sheet.jpg diagnostics/pos-recording-duration.txt
           find diagnostics/pos-recording-frames -maxdepth 1 -type f | wc -l > diagnostics/pos-recording-frame-count.txt
 
