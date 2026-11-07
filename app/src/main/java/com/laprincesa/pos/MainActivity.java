@@ -10,6 +10,8 @@ import android.bluetooth.BluetoothSocket;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.view.View;
+import android.view.WindowManager;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
@@ -48,12 +50,17 @@ public class MainActivity extends AppCompatActivity {
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
+        // Let Android resize the WebView when the soft keyboard appears.
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         assetLoader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .build();
 
         web = new WebView(this);
+        web.setFocusable(true);
+        web.setFocusableInTouchMode(true);
         setContentView(web);
+        web.requestFocus(View.FOCUS_DOWN);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
