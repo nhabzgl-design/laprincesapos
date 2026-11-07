@@ -2,6 +2,9 @@ name: Inspect POS Screen Recording
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - inspect-pos-recording-temp
 
 permissions:
   contents: write
