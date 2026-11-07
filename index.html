@@ -3379,10 +3379,13 @@ function importFile(f){var r=new FileReader();r.onload=function(){var j;try{j=JS
 function clearAll(){
 if(!confirm('BURAHIN ang local data sa device na ito? Gagawa muna ng safety backup. Hindi buburahin ang cloud records o data ng ibang cellphone.'))return;
 if(!confirm('Sigurado ka? Mawawala sa device na ito ang local orders, customers, inventory, expenses. Mananatili ang lahat ng Services na na-edit mo at ang machine records. Sa cloud account, maaaring maibalik ang cloud data kapag nag-login at nag-sync ulit.'))return;
-var KEEP=P+'machines',KEEP_SERVICES=P+'services_v2',cl=window.LPCloud&&window.LPCloud.enabled;
+var KEEP=P+'machines',KEEP_SERVICES=P+'services_v2',KEEP_RECIPES=P+'package_recipes_v1',cl=window.LPCloud&&window.LPCloud.enabled;
+var preservedConfig={};
+[KEEP,KEEP_SERVICES,KEEP_RECIPES].forEach(function(k){var v=localStorage.getItem(k);if(v!==null)preservedConfig[k]=v});
 safety('before-clear-device');
 function wipeLocal(){
- keys().forEach(function(k){if(k!==KEEP&&k!==KEEP_SERVICES)localStorage.removeItem(k)});
+ keys().forEach(function(k){if(k!==KEEP&&k!==KEEP_SERVICES&&k!==KEEP_RECIPES)localStorage.removeItem(k)});
+ Object.keys(preservedConfig).forEach(function(k){localStorage.setItem(k,preservedConfig[k])});
  ['orders_v2','customers_v2','inventory_v2','expenses_v2'].forEach(function(n){localStorage.setItem(P+n,'[]')});
  try{var m=JSON.parse(localStorage.getItem(KEEP)||'null');if(Array.isArray(m)){m=m.map(function(x){var y={};for(var q in x)y[q]=x[q];y.status=(y.status==='In Use')?'Available':y.status;y.activeOrderId=null;y.activeOrderNo=null;y.load=0;return y});localStorage.setItem(KEEP,JSON.stringify(m))}}catch(e){}
  msg(cl?'Na-clear ang local cache. Hindi binura ang cloud. Mag-login muli para mag-sync.':'Na-clear ang local data sa device na ito. Nagre-reload...');
