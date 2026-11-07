@@ -21,6 +21,13 @@ android {
   }
   buildTypes { release { minifyEnabled false } }
 }
+
+// Declare the dependency required by AGP's release lint analysis task.
+tasks.configureEach {
+  if (name == 'lintVitalAnalyzeRelease') {
+    dependsOn('checkReleaseDuplicateClasses')
+  }
+}
 dependencies {
   implementation 'androidx.appcompat:appcompat:1.6.1'
   implementation 'androidx.webkit:webkit:1.10.0'
