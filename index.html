@@ -3378,12 +3378,12 @@ function validate(j){if(!j||typeof j!=='object'||j.app!=='La Princesa AquaSpin P
 function importFile(f){var r=new FileReader();r.onload=function(){var j;try{j=JSON.parse(r.result)}catch(e){msg('Hindi valid na JSON file.');return}var err=validate(j);if(err){msg('Hindi na-import: '+err);return}var c=j.counts||{},cur=pack(snapshot()).counts;if(!confirm('I-RESTORE ang backup na ito?\n\nPetsa: '+(j.exportedAt||'?')+'\nBackup: '+(c.orders||0)+' orders, '+(c.customers||0)+' customers, '+(c.inventory||0)+' inventory\nKasalukuyan: '+cur.orders+' orders, '+cur.customers+' customers, '+cur.inventory+' inventory\n\nPapalitan ang LAHAT ng data. Gagawa muna ng safety backup.'))return;safety('before-restore');keys().forEach(function(k){localStorage.removeItem(k)});Object.keys(j.data).filter(function(k){return k.indexOf(P)===0}).forEach(function(k){localStorage.setItem(k,j.data[k])});msg('Na-restore. Nagre-reload...');setTimeout(function(){location.reload()},1200)};r.readAsText(f)}
 function clearAll(){
 if(!confirm('BURAHIN ang local data sa device na ito? Gagawa muna ng safety backup. Hindi buburahin ang cloud records o data ng ibang cellphone.'))return;
-if(!confirm('Sigurado ka? Mawawala sa device na ito ang local orders, customers, inventory, expenses at services. Sa cloud account, maaaring maibalik ang cloud data kapag nag-login at nag-sync ulit.'))return;
-var KEEP=P+'machines',cl=window.LPCloud&&window.LPCloud.enabled;
+if(!confirm('Sigurado ka? Mawawala sa device na ito ang local orders, customers, inventory, expenses. Mananatili ang lahat ng Services na na-edit mo at ang machine records. Sa cloud account, maaaring maibalik ang cloud data kapag nag-login at nag-sync ulit.'))return;
+var KEEP=P+'machines',KEEP_SERVICES=P+'services_v2',cl=window.LPCloud&&window.LPCloud.enabled;
 safety('before-clear-device');
 function wipeLocal(){
- keys().forEach(function(k){if(k!==KEEP)localStorage.removeItem(k)});
- ['orders_v2','customers_v2','inventory_v2','expenses_v2','services_v2'].forEach(function(n){localStorage.setItem(P+n,'[]')});
+ keys().forEach(function(k){if(k!==KEEP&&k!==KEEP_SERVICES)localStorage.removeItem(k)});
+ ['orders_v2','customers_v2','inventory_v2','expenses_v2'].forEach(function(n){localStorage.setItem(P+n,'[]')});
  try{var m=JSON.parse(localStorage.getItem(KEEP)||'null');if(Array.isArray(m)){m=m.map(function(x){var y={};for(var q in x)y[q]=x[q];y.status=(y.status==='In Use')?'Available':y.status;y.activeOrderId=null;y.activeOrderNo=null;y.load=0;return y});localStorage.setItem(KEEP,JSON.stringify(m))}}catch(e){}
  msg(cl?'Na-clear ang local cache. Hindi binura ang cloud. Mag-login muli para mag-sync.':'Na-clear ang local data sa device na ito. Nagre-reload...');
  setTimeout(function(){location.reload()},900);
