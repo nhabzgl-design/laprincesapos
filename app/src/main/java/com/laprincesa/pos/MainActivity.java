@@ -47,6 +47,24 @@ public class MainActivity extends AppCompatActivity {
     private OutputStream printerOut;
     private String lastMac = "";
 
+    // Apply login/input keyboard fixes after the bundled page loads.
+    private static final String FIX_JS =
+            "(function(){if(window.__lpKbFix)return;window.__lpKbFix=1;"
+            + "var s=document.createElement('style');"
+            + "s.textContent='#lp-gate{align-items:safe center!important;padding-top:84px!important}';"
+            + "document.head.appendChild(s);"
+            + "function fx(e){if(!e||e.nodeType!==1)return;"
+            + "var t=(e.getAttribute('type')||'text').toLowerCase();"
+            + "if((e.tagName==='INPUT'&&(t==='text'||t==='number'||t==='tel'||t==='search'||t==='email'))||e.tagName==='TEXTAREA'){e.setAttribute('autocomplete','off');}}"
+            + "function sc(r){if(r&&r.querySelectorAll){[].forEach.call(r.querySelectorAll('input,textarea'),fx);}}"
+            + "sc(document);"
+            + "new MutationObserver(function(ms){for(var i=0;i<ms.length;i++){var a=ms[i].addedNodes;for(var j=0;j<a.length;j++){fx(a[j]);sc(a[j]);}}}).observe(document.documentElement,{childList:true,subtree:true});"
+            + "document.addEventListener('focusin',function(ev){var t=ev.target;"
+            + "if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA')&&t.closest&&t.closest('#lp-gate')){"
+            + "setTimeout(function(){try{t.scrollIntoView({block:'center'});}catch(x){}},350);}});"
+            + "})();";
+
+
     @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
@@ -82,6 +100,11 @@ public class MainActivity extends AppCompatActivity {
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 return assetLoader.shouldInterceptRequest(request.getUrl());
+            }
+
+            @Override public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                view.evaluateJavascript(FIX_JS, null);
             }
 
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
