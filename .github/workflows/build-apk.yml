@@ -38,11 +38,13 @@ jobs:
         with:
           gradle-version: '8.0.2'
 
-      - name: Prepare bundled POS HTML
+      - name: Prepare bundled POS HTML and launcher icon
         run: |
-          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/assets app/src/main/res/mipmap-nodpi
           cp index.html app/src/main/assets/index.html
+          cp icon-maskable-512.png app/src/main/res/mipmap-nodpi/ic_launcher.png
           test -s app/src/main/assets/index.html
+          test -s app/src/main/res/mipmap-nodpi/ic_launcher.png
 
       # Debug APKs are automatically signed with Android's debug keystore.
       # This artifact is for device testing, not production distribution.
