@@ -18,6 +18,7 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.ValueCallback;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -33,6 +34,10 @@ import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_BT = 41;
+    private static final int REQUEST_SAVE_BACKUP = 42;
+    private static final int REQUEST_OPEN_BACKUP = 43;
+    private ValueCallback<Uri[]> fileChooserCallback;
+    private String pendingBackupText = null;
     private static final UUID SPP = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private WebView web;
     private WebViewAssetLoader assetLoader;
@@ -55,7 +60,18 @@ public class MainActivity extends AppCompatActivity {
         settings.setDatabaseEnabled(true);
         settings.setAllowFileAccess(false);
         settings.setAllowContentAccess(false);
-        web.setWebChromeClient(new WebChromeClient());
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
+                if (fileChooserCallback != null) fileChooserCallback.onReceiveValue(null);
+                fileChooserCallback = callback;
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/json");
+                try { startActivityForResult(intent, REQUEST_OPEN_BACKUP); }
+                catch (Exception e) { fileChooserCallback = null; callback.onReceiveValue(null); return false; }
+                return true;
+            }
+        });
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 return assetLoader.shouldInterceptRequest(request.getUrl());
@@ -72,6 +88,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
         web.addJavascriptInterface(new NativePrinter(), "NativePrinter");
+        web.addJavascriptInterface(new NativeFiles(), "NativeFiles");
         web.loadUrl("https://appassets.androidplatform.net/assets/index.html");
         requestBluetoothPermissions();
     }
@@ -95,6 +112,44 @@ public class MainActivity extends AppCompatActivity {
     private boolean hasBluetoothPermission() {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
                 ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    public class NativeFiles {
+        @JavascriptInterface public boolean saveBackup(String filename, String jsonText) {
+            if (jsonText == null || jsonText.length() > 20_000_000) return false;
+            runOnUiThread(() -> {
+                pendingBackupText = jsonText;
+                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/json");
+                intent.putExtra(Intent.EXTRA_TITLE, filename == null || filename.trim().isEmpty() ? "LaPrincesa_backup.json" : filename);
+                try { startActivityForResult(intent, REQUEST_SAVE_BACKUP); }
+                catch (Exception e) { pendingBackupText = null; }
+            });
+            return true;
+        }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_OPEN_BACKUP) {
+            if (fileChooserCallback != null) {
+                Uri[] result = resultCode == RESULT_OK && data != null && data.getData() != null
+                        ? new Uri[] { data.getData() } : null;
+                fileChooserCallback.onReceiveValue(result);
+                fileChooserCallback = null;
+            }
+            return;
+        }
+        if (requestCode == REQUEST_SAVE_BACKUP) {
+            String content = pendingBackupText;
+            pendingBackupText = null;
+            if (resultCode == RESULT_OK && data != null && data.getData() != null && content != null) {
+                try (OutputStream out = getContentResolver().openOutputStream(data.getData())) {
+                    if (out != null) out.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                } catch (Exception ignored) { }
+            }
+        }
     }
 
     public class NativePrinter {
