@@ -67,8 +67,7 @@ public class MainActivity extends AppCompatActivity {
     private void requestBluetoothPermissions() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             String[] permissions = new String[] {
-                    Manifest.permission.BLUETOOTH_CONNECT,
-                    Manifest.permission.BLUETOOTH_SCAN
+                    Manifest.permission.BLUETOOTH_CONNECT
             };
             boolean missing = false;
             for (String permission : permissions) {
@@ -118,7 +117,6 @@ public class MainActivity extends AppCompatActivity {
                 }
                 if (device == null) return false;
                 closePrinter();
-                adapter.cancelDiscovery();
                 socket = device.createRfcommSocketToServiceRecord(SPP);
                 socket.connect();
                 printerOut = socket.getOutputStream();
