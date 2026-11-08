@@ -75,18 +75,41 @@ public class MainActivity extends AppCompatActivity {
                                       String defaultValue, JsPromptResult result) {
                 EditText input = new EditText(MainActivity.this);
                 input.setSingleLine(true);
-                input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+
+                // Only actual password prompts should mask what the user types.
+                // Inventory names stay readable; stock and price prompts use a visible
+                // numeric keyboard so the cashier can verify each value while entering it.
+                String promptText = message == null ? "" : message.toLowerCase(java.util.Locale.ROOT);
+                boolean passwordPrompt = promptText.contains("password");
+                boolean numericPrompt = promptText.contains("stock")
+                    || promptText.contains("price")
+                    || promptText.contains("presyo")
+                    || promptText.contains("liters")
+                    || promptText.contains("amount")
+                    || promptText.contains("halagang binayad");
+
+                if (passwordPrompt) {
+                    input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                } else if (numericPrompt) {
+                    input.setInputType(InputType.TYPE_CLASS_NUMBER
+                        | InputType.TYPE_NUMBER_FLAG_DECIMAL
+                        | InputType.TYPE_NUMBER_FLAG_SIGNED);
+                } else {
+                    input.setInputType(InputType.TYPE_CLASS_TEXT
+                        | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+                }
+
                 if (defaultValue != null) input.setText(defaultValue);
                 input.setSelection(input.getText().length());
 
-                AlertDialog dialog = new AlertDialog.Builder(MainActivity.this)
-                    .setTitle("Password Verification")
+                AlertDialog.Builder promptDialog = new AlertDialog.Builder(MainActivity.this)
+                    .setTitle(passwordPrompt ? "Password Verification" : "La Princesa POS")
                     .setMessage(message)
                     .setView(input)
-                    .setPositiveButton("Verify", (d, which) ->
+                    .setPositiveButton(passwordPrompt ? "Verify" : "OK", (d, which) ->
                         result.confirm(input.getText().toString()))
-                    .setNegativeButton("Cancel", (d, which) -> result.cancel())
-                    .create();
+                    .setNegativeButton("Cancel", (d, which) -> result.cancel());
+                AlertDialog dialog = promptDialog.create();
                 dialog.setOnCancelListener(d -> result.cancel());
                 dialog.show();
                 input.requestFocus();
