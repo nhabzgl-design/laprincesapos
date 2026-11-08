@@ -3611,6 +3611,7 @@ function unlock(){document.documentElement.classList.remove('lp-locked');var g=$
 
 var gate,card;
 function buildGate(){
+ if(document.getElementById('lp-gate')){gate=document.getElementById('lp-gate');card=$('#lp-card');return}
  gate=document.createElement('div');gate.id='lp-gate';
  var b='';
  gate.innerHTML=b+'<div id="lp-card" role="dialog" aria-modal="true" aria-label="Login"></div>';
