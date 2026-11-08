@@ -240,108 +240,127 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public boolean printHtmlBase64(String encodedHtml) {
-            final CountDownLatch rendered = new CountDownLatch(1);
-            final AtomicReference<byte[]> printData = new AtomicReference<>(null);
-            final AtomicReference<WebView> renderView = new AtomicReference<>(null);
+            final String html;
             try {
                 byte[] htmlBytes = Base64.decode(encodedHtml, Base64.DEFAULT);
-                final String html = new String(htmlBytes, StandardCharsets.UTF_8);
-                runOnUiThread(() -> {
-                    try {
-                        WebView renderer = new WebView(MainActivity.this);
-                        renderView.set(renderer);
-                        WebSettings ws = renderer.getSettings();
-                        ws.setJavaScriptEnabled(false);
-                        ws.setDomStorageEnabled(false);
-                        ws.setDefaultTextEncodingName("UTF-8");
-                        renderer.setBackgroundColor(Color.WHITE);
-                        renderer.setVerticalScrollBarEnabled(false);
-                        renderer.setHorizontalScrollBarEnabled(false);
-                        renderer.setAlpha(1f);
-                        renderer.setClickable(false);
-                        renderer.setFocusable(false);
-                        if (Build.VERSION.SDK_INT >= 16) {
-                            renderer.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-                        }
-                        int density = Math.round(getResources().getDisplayMetrics().density * 1000f);
-                        int widthPx = Math.max(224, Math.round(224f * density / 1000f));
-                        int maxHeightPx = Math.round(12000f * density / 1000f);
-                        ViewGroup decor = (ViewGroup) getWindow().getDecorView();
-                        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                            widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
-                        // Keep the renderer off-screen, but fully opaque so view.draw() captures
-                        // solid black text rather than the nearly-transparent UI alpha.
-                        params.leftMargin = -widthPx - 20;
-                        decor.addView(renderer, params);
-                        renderer.setWebViewClient(new WebViewClient() {
-                            @Override
-                            public void onPageFinished(WebView view, String url) {
-                                view.evaluateJavascript(
-                                    "String(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight))",
-                                    value -> {
-                                        try {
-                                            String clean = value == null ? "0" : value.replace("\"", "").trim();
-                                            int cssHeight = Integer.parseInt(clean);
-                                            cssHeight = Math.max(1, Math.min(cssHeight, 12000));
-                                            int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
-                                            view.setLayoutParams(new FrameLayout.LayoutParams(
-                                                widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
-                                            view.measure(
-                                                View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
-                                                View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
-                                            view.layout(0, 0, widthPx, heightPx);
-                                            Bitmap original = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
-                                            Canvas canvas = new Canvas(original);
-                                            canvas.drawColor(Color.WHITE);
-                                            view.draw(canvas);
-                                            int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
-                                            Bitmap scaled = Bitmap.createScaledBitmap(original, 384, targetHeight, true);
-                                            original.recycle();
-                                            printData.set(bitmapToEscPos(scaled));
-                                            scaled.recycle();
-                                        } catch (Exception ignored) {
-                                            printData.set(null);
-                                        } finally {
-                                            try {
-                                                ViewGroup parent = (ViewGroup) view.getParent();
-                                                if (parent != null) parent.removeView(view);
-                                                view.stopLoading();
-                                                view.destroy();
-                                            } catch (Exception ignored) {}
-                                            rendered.countDown();
-                                        }
-                                    });
-                            }
-                        });
-                        renderer.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
-                    } catch (Exception e) {
-                        try {
-                            WebView v = renderView.get();
-                            if (v != null) {
-                                ViewGroup parent = (ViewGroup) v.getParent();
-                                if (parent != null) parent.removeView(v);
-                                v.destroy();
-                            }
-                        } catch (Exception ignored) {}
-                        rendered.countDown();
-                    }
-                });
-                if (!rendered.await(30, TimeUnit.SECONDS)) return false;
-                byte[] data = printData.get();
-                if (data == null || data.length == 0) return false;
-                if (out == null && !connect(lastMac)) return false;
-                final int chunkSize = 1024;
-                for (int offset = 0; offset < data.length; offset += chunkSize) {
-                    int length = Math.min(chunkSize, data.length - offset);
-                    out.write(data, offset, length);
-                    out.flush();
-                    Thread.sleep(12);
-                }
-                return true;
+                html = new String(htmlBytes, StandardCharsets.UTF_8);
             } catch (Exception e) {
-                closePrinter();
+                showReceiptPrintError("Hindi mabasa ang formatted receipt.");
                 return false;
             }
+
+            // Do not wait for WebView rendering here. JavaScript bridge calls can arrive
+            // on the WebView UI thread; waiting for onPageFinished on that same thread
+            // deadlocks until the caller times out.
+            runOnUiThread(() -> {
+                final WebView renderer = new WebView(MainActivity.this);
+                try {
+                    WebSettings ws = renderer.getSettings();
+                    ws.setJavaScriptEnabled(false);
+                    ws.setDomStorageEnabled(false);
+                    ws.setDefaultTextEncodingName("UTF-8");
+                    renderer.setBackgroundColor(Color.WHITE);
+                    renderer.setVerticalScrollBarEnabled(false);
+                    renderer.setHorizontalScrollBarEnabled(false);
+                    renderer.setAlpha(1f);
+                    renderer.setClickable(false);
+                    renderer.setFocusable(false);
+                    if (Build.VERSION.SDK_INT >= 16) {
+                        renderer.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                    }
+
+                    int density = Math.round(getResources().getDisplayMetrics().density * 1000f);
+                    int widthPx = Math.max(224, Math.round(224f * density / 1000f));
+                    int maxHeightPx = Math.round(12000f * density / 1000f);
+                    ViewGroup decor = (ViewGroup) getWindow().getDecorView();
+                    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                        widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
+                    params.leftMargin = -widthPx - 20;
+                    decor.addView(renderer, params);
+
+                    renderer.setWebViewClient(new WebViewClient() {
+                        private boolean handled = false;
+
+                        @Override
+                        public void onPageFinished(WebView view, String url) {
+                            if (handled) return;
+                            handled = true;
+                            view.evaluateJavascript(
+                                "String(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight))",
+                                value -> {
+                                    byte[] data = null;
+                                    try {
+                                        String clean = value == null ? "0" : value.replace("\"", "").trim();
+                                        int cssHeight = Integer.parseInt(clean);
+                                        cssHeight = Math.max(1, Math.min(cssHeight, 12000));
+                                        int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
+                                        view.setLayoutParams(new FrameLayout.LayoutParams(
+                                            widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
+                                        view.measure(
+                                            View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+                                            View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
+                                        view.layout(0, 0, widthPx, heightPx);
+                                        Bitmap original = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
+                                        Canvas canvas = new Canvas(original);
+                                        canvas.drawColor(Color.WHITE);
+                                        view.draw(canvas);
+                                        int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
+                                        Bitmap scaled = Bitmap.createScaledBitmap(original, 384, targetHeight, true);
+                                        original.recycle();
+                                        data = bitmapToEscPos(scaled);
+                                        scaled.recycle();
+                                    } catch (Exception ignored) {
+                                        data = null;
+                                    } finally {
+                                        try {
+                                            ViewGroup parent = (ViewGroup) view.getParent();
+                                            if (parent != null) parent.removeView(view);
+                                            view.stopLoading();
+                                            view.destroy();
+                                        } catch (Exception ignored) {}
+                                    }
+
+                                    final byte[] printBytes = data;
+                                    if (printBytes == null || printBytes.length == 0) {
+                                        showReceiptPrintError("Hindi ma-render ang resibo. Subukan muli.");
+                                        return;
+                                    }
+                                    new Thread(() -> {
+                                        try {
+                                            if (out == null && !connect(lastMac)) {
+                                                showReceiptPrintError("Hindi makakonekta sa printer para sa resibo.");
+                                                return;
+                                            }
+                                            final int chunkSize = 1024;
+                                            for (int offset = 0; offset < printBytes.length; offset += chunkSize) {
+                                                int length = Math.min(chunkSize, printBytes.length - offset);
+                                                out.write(printBytes, offset, length);
+                                                out.flush();
+                                                Thread.sleep(12);
+                                            }
+                                        } catch (Exception e) {
+                                            closePrinter();
+                                            showReceiptPrintError("Nabigo ang pagpapadala ng resibo sa printer.");
+                                        }
+                                    }, "ReceiptPrintWorker").start();
+                                });
+                        }
+                    });
+                    renderer.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
+                } catch (Exception e) {
+                    try {
+                        ViewGroup parent = (ViewGroup) renderer.getParent();
+                        if (parent != null) parent.removeView(renderer);
+                        renderer.destroy();
+                    } catch (Exception ignored) {}
+                    showReceiptPrintError("Hindi masimulan ang pag-render ng resibo.");
+                }
+            });
+            return true;
+        }
+
+        private void showReceiptPrintError(String message) {
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show());
         }
 
         private byte[] bitmapToEscPos(Bitmap bitmap) throws Exception {
