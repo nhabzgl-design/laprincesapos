@@ -3635,15 +3635,7 @@ window.__LP_AUTH_MANUAL_DRAWER=async function(){
  lpLog({event:'drawer',origin:'manual',result:sent?'command_sent':'failed'});
  return sent;
 };
-window.__LP_AUTH_PRINT_RECEIPT=async function(order){
- var s=getSession();if(!s||!order)return false;
- var p=window.prompt('Ilagay ang kasalukuyang login password ni '+s.u+' para mag-print ng resibo:');if(p===null)return false;
- var ok=await window.__LP_VERIFY_LOGIN(s.u,p);p='';
- lpLog({event:'password_verification',origin:'receipt_print',transactionId:String(order.id||order.orderNo||''),amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:ok?'success':'failure'});
- if(!ok){window.alert('Mali ang password. Hindi na-print ang resibo.');return false}
- var printed=!!(window.printReceiptOnly&&await window.printReceiptOnly());
- lpLog({event:'receipt_print',origin:'receipt',transactionId:String(order.id||order.orderNo||''),amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:printed?'command_sent':'failed'});
- window.__LP_SHOW_ACTIVITY_LOG=function(){
+window.__LP_SHOW_ACTIVITY_LOG=function(){
  var old=document.getElementById('lp-activity-overlay');if(old)old.remove();
  var ov=document.createElement('div');ov.id='lp-activity-overlay';ov.style.cssText='position:fixed;inset:0;z-index:300010;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:14px';
  var box=document.createElement('div');box.style.cssText='background:#17172b;color:#fff;border:1px solid #454568;border-radius:16px;width:min(680px,100%);max-height:85vh;overflow:auto;padding:16px;font:13px system-ui';
@@ -3655,7 +3647,15 @@ window.__LP_AUTH_PRINT_RECEIPT=async function(order){
  rows.slice(0,300).forEach(function(r){var d=document.createElement('div');d.style.cssText='padding:9px 0;border-bottom:1px solid #34344b;white-space:pre-wrap;overflow-wrap:anywhere';var when=r.at?new Date(r.at).toLocaleString():'Unknown time';d.textContent=when+' • '+(r.user||'unknown')+' • '+(r.event||'event')+' • '+(r.origin||'')+' • '+(r.result||'')+(r.transactionId?' • Txn '+r.transactionId:'')+(r.amount!=null?' • ₱'+Number(r.amount).toFixed(2):'')+(r.paymentMethod?' • '+r.paymentMethod:'');list.appendChild(d)});
  box.appendChild(close);box.appendChild(h);box.appendChild(list);ov.appendChild(box);ov.addEventListener('click',function(e){if(e.target===ov)ov.remove()});document.body.appendChild(ov);
 };
-if(!printed)return false;
+window.__LP_AUTH_PRINT_RECEIPT=async function(order){
+ var s=getSession();if(!s||!order)return false;
+ var p=window.prompt('Ilagay ang kasalukuyang login password ni '+s.u+' para mag-print ng resibo:');if(p===null)return false;
+ var ok=await window.__LP_VERIFY_LOGIN(s.u,p);p='';
+ lpLog({event:'password_verification',origin:'receipt_print',transactionId:String(order.id||order.orderNo||''),amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:ok?'success':'failure'});
+ if(!ok){window.alert('Mali ang password. Hindi na-print ang resibo.');return false}
+ var printed=!!(window.printReceiptOnly&&await window.printReceiptOnly());
+ lpLog({event:'receipt_print',origin:'receipt',transactionId:String(order.id||order.orderNo||''),amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:printed?'command_sent':'failed'});
+ if(!printed)return false;
  var key='laPrincesa_receipt_state_v1',states={};try{states=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){}
  var id=String(order.id||order.orderNo||'');
  var first=!states[id]||!states[id].printed;
