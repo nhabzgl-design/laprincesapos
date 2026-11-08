@@ -1,5 +1,16 @@
 package com.laprincesa.pos;
 
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.view.Gravity;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
@@ -186,6 +197,140 @@ public class MainActivity extends AppCompatActivity {
                 closePrinter();
                 return false;
             }
+        }
+
+        @JavascriptInterface
+        public boolean printHtmlBase64(String encodedHtml) {
+            final CountDownLatch rendered = new CountDownLatch(1);
+            final AtomicReference<byte[]> printData = new AtomicReference<>(null);
+            final AtomicReference<WebView> renderView = new AtomicReference<>(null);
+            try {
+                byte[] htmlBytes = Base64.decode(encodedHtml, Base64.DEFAULT);
+                final String html = new String(htmlBytes, StandardCharsets.UTF_8);
+                runOnUiThread(() -> {
+                    try {
+                        WebView renderer = new WebView(MainActivity.this);
+                        renderView.set(renderer);
+                        WebSettings ws = renderer.getSettings();
+                        ws.setJavaScriptEnabled(false);
+                        ws.setDomStorageEnabled(false);
+                        ws.setDefaultTextEncodingName("UTF-8");
+                        renderer.setBackgroundColor(Color.WHITE);
+                        renderer.setVerticalScrollBarEnabled(false);
+                        renderer.setHorizontalScrollBarEnabled(false);
+                        renderer.setAlpha(0.01f);
+                        renderer.setClickable(false);
+                        renderer.setFocusable(false);
+                        if (Build.VERSION.SDK_INT >= 16) {
+                            renderer.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                        }
+                        int density = Math.round(getResources().getDisplayMetrics().density * 1000f);
+                        int widthPx = Math.max(224, Math.round(224f * density / 1000f));
+                        int maxHeightPx = Math.round(12000f * density / 1000f);
+                        ViewGroup decor = (ViewGroup) getWindow().getDecorView();
+                        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+                            widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
+                        decor.addView(renderer, params);
+                        renderer.setWebViewClient(new WebViewClient() {
+                            @Override
+                            public void onPageFinished(WebView view, String url) {
+                                view.evaluateJavascript(
+                                    "String(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight))",
+                                    value -> {
+                                        try {
+                                            String clean = value == null ? "0" : value.replace("\"", "").trim();
+                                            int cssHeight = Integer.parseInt(clean);
+                                            cssHeight = Math.max(1, Math.min(cssHeight, 12000));
+                                            int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
+                                            view.setLayoutParams(new FrameLayout.LayoutParams(
+                                                widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
+                                            view.measure(
+                                                View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
+                                                View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
+                                            view.layout(0, 0, widthPx, heightPx);
+                                            Bitmap original = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
+                                            Canvas canvas = new Canvas(original);
+                                            canvas.drawColor(Color.WHITE);
+                                            view.draw(canvas);
+                                            int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
+                                            Bitmap scaled = Bitmap.createScaledBitmap(original, 384, targetHeight, true);
+                                            original.recycle();
+                                            printData.set(bitmapToEscPos(scaled));
+                                            scaled.recycle();
+                                        } catch (Exception ignored) {
+                                            printData.set(null);
+                                        } finally {
+                                            try {
+                                                ViewGroup parent = (ViewGroup) view.getParent();
+                                                if (parent != null) parent.removeView(view);
+                                                view.stopLoading();
+                                                view.destroy();
+                                            } catch (Exception ignored) {}
+                                            rendered.countDown();
+                                        }
+                                    });
+                            }
+                        });
+                        renderer.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
+                    } catch (Exception e) {
+                        try {
+                            WebView v = renderView.get();
+                            if (v != null) {
+                                ViewGroup parent = (ViewGroup) v.getParent();
+                                if (parent != null) parent.removeView(v);
+                                v.destroy();
+                            }
+                        } catch (Exception ignored) {}
+                        rendered.countDown();
+                    }
+                });
+                if (!rendered.await(30, TimeUnit.SECONDS)) return false;
+                byte[] data = printData.get();
+                if (data == null || data.length == 0) return false;
+                if (out == null && !connect(lastMac)) return false;
+                final int chunkSize = 1024;
+                for (int offset = 0; offset < data.length; offset += chunkSize) {
+                    int length = Math.min(chunkSize, data.length - offset);
+                    out.write(data, offset, length);
+                    out.flush();
+                    Thread.sleep(12);
+                }
+                return true;
+            } catch (Exception e) {
+                closePrinter();
+                return false;
+            }
+        }
+
+        private byte[] bitmapToEscPos(Bitmap bitmap) throws Exception {
+            int width = bitmap.getWidth();
+            int height = bitmap.getHeight();
+            int widthBytes = (width + 7) / 8;
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream(8 + widthBytes * height + 8);
+            bytes.write(new byte[] { 0x1B, 0x40 });
+            bytes.write(new byte[] {
+                0x1D, 0x76, 0x30, 0x00,
+                (byte) (widthBytes & 0xFF), (byte) ((widthBytes >> 8) & 0xFF),
+                (byte) (height & 0xFF), (byte) ((height >> 8) & 0xFF)
+            });
+            for (int y = 0; y < height; y++) {
+                for (int xb = 0; xb < widthBytes; xb++) {
+                    int value = 0;
+                    for (int bit = 0; bit < 8; bit++) {
+                        int x = xb * 8 + bit;
+                        if (x < width) {
+                            int color = bitmap.getPixel(x, y);
+                            int luminance = (Color.red(color) * 299
+                                + Color.green(color) * 587
+                                + Color.blue(color) * 114) / 1000;
+                            if (luminance < 180) value |= (0x80 >> bit);
+                        }
+                    }
+                    bytes.write(value);
+                }
+            }
+            bytes.write(new byte[] { 0x0A, 0x0A, 0x0A, 0x1D, 0x56, 0x42, 0x00 });
+            return bytes.toByteArray();
         }
 
         @JavascriptInterface
