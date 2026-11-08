@@ -3134,9 +3134,9 @@ body:has(.min-h-screen.bg-\[\#0F0F1E\])::before{background:radial-gradient(60% 5
 /* ===== GLASS v3: malinaw na resibo, glass buttons, glass dashboard ===== */
 /* RESIBO: puting papel, itim na teksto, malinaw */
 [style*="224px"]{background:#fff!important;background-color:#fff!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important;box-shadow:0 10px 34px rgba(0,0,0,.35)!important;border-radius:6px;zoom:1;color:#000!important}
-[style*="224px"] *{color:#000!important;font-weight:600;-webkit-font-smoothing:antialiased;text-shadow:none!important}
-[style*="224px"] .font-extrabold,[style*="224px"] .font-bold{font-weight:800}
-[style*="224px"] img{filter:none!important}
+[style*="224px"] *{color:#000!important;font-weight:400;-webkit-font-smoothing:antialiased;text-shadow:none!important}
+[style*="224px"] .font-extrabold,[style*="224px"] .font-bold{font-weight:700}
+[style*="224px"] .truncate{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere!important}\n[style*="224px"] img{filter:none!important}
 /* Modal ng preview: mas maliwanag na frosted glass */
 .fixed.z-\[90\]{background:rgba(10,6,30,.55)!important;-webkit-backdrop-filter:blur(8px)!important;backdrop-filter:blur(8px)!important}
 .fixed.z-\[90\]>div{background:rgba(255,255,255,.16)!important;border:1px solid rgba(255,255,255,.35)!important;-webkit-backdrop-filter:blur(14px)!important;backdrop-filter:blur(14px)!important;box-shadow:0 20px 60px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.4)!important}
@@ -3159,7 +3159,7 @@ button:active::after{opacity:1;transform:scale(1.6);transition:0s}
 [class*="from-[#1A1A4E]"],[class*="from-[#7B2FFF]"]{background-image:linear-gradient(135deg,rgba(255,255,255,.22),rgba(123,47,255,.38) 60%,rgba(233,30,140,.28))!important;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.35);box-shadow:0 10px 30px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.45)}
 .rounded-2xl,.rounded-3xl,[class*="rounded-[2"]{border-color:rgba(255,255,255,.28)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.32)}
 @media(max-width:700px){[class*="from-[#1A1A4E]"],[class*="from-[#7B2FFF]"]{-webkit-backdrop-filter:none;backdrop-filter:none}}
-@media print{button::after{display:none}[style*="224px"]{zoom:1;box-shadow:none!important}[style*="224px"] *{font-weight:600}}
+@media print{button::after{display:none}[style*="224px"]{zoom:1;box-shadow:none!important}[style*="224px"] *{font-weight:400}[style*="224px"] .font-extrabold,[style*="224px"] .font-bold{font-weight:700}}
 </style>
 <style id="fix-v4">span[class*="rounded-full"],button[class*="rounded-full"]{white-space:nowrap}</style>
 <style id="fix-v5">.dash-light{background:#ece6fa;border-radius:18px}.dash-light h3{color:#1A1A4E!important}.dash-light .dash-lbl{color:#fff!important;font-weight:800!important}
@@ -3381,7 +3381,7 @@ window.printReceiptOnly=async function(){
    receiptClone.style.setProperty('background-color','#fff','important');
    receiptClone.style.setProperty('color','#000','important');
    var html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=224, initial-scale=1">'+
-    '<style>html,body{margin:0!important;padding:0!important;width:224px!important;min-width:224px!important;background:#fff!important;color:#000!important}#lp-print-root{width:224px!important;max-width:224px!important;margin:0!important;padding:0!important;background:#fff!important;color:#000!important;zoom:1!important;box-shadow:none!important;border-radius:0!important}#lp-print-root *{box-sizing:border-box!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}</style>'+
+    '<style>html,body{margin:0!important;padding:0!important;width:224px!important;min-width:224px!important;background:#fff!important;color:#000!important}#lp-print-root{width:224px!important;max-width:224px!important;margin:0!important;padding:0!important;background:#fff!important;color:#000!important;zoom:1!important;box-shadow:none!important;border-radius:0!important}#lp-print-root *{box-sizing:border-box!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;font-weight:400!important;overflow-wrap:anywhere!important}#lp-print-root .font-bold,#lp-print-root .font-extrabold{font-weight:700!important}#lp-print-root .truncate{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}</style>'+
     '</head><body><div id="lp-print-root">'+receiptClone.outerHTML+'</div></body></html>';
    var encoded=btoa(unescape(encodeURIComponent(html)));
    var ok=!!window.NativePrinter.printHtmlBase64(encoded);
