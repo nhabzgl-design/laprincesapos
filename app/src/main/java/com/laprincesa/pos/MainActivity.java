@@ -289,12 +289,12 @@ public class MainActivity extends AppCompatActivity {
                                 "String(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight))",
                                 value -> {
                                     byte[] data = null;
+                                    String renderFailure = null;
+                                    Bitmap raster = null;
                                     try {
                                         String clean = value == null ? "" : value.replace("\"", "").trim();
                                         int cssHeight = Integer.parseInt(clean);
-                                        if (cssHeight <= 0) throw new IllegalStateException("empty receipt layout");
-                                        // Keep the raster small enough for memory-constrained Android phones.
-                                        // 6,000 CSS px is already far longer than a normal POS receipt.
+                                        if (cssHeight <= 0) throw new IllegalStateException("empty receipt layout; JS height=" + clean);
                                         cssHeight = Math.min(cssHeight, 6000);
                                         int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
                                         view.setLayoutParams(new FrameLayout.LayoutParams(
@@ -304,24 +304,22 @@ public class MainActivity extends AppCompatActivity {
                                             View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
                                         view.layout(0, 0, widthPx, heightPx);
 
-                                        // Render directly at the printer's 384-dot width. Avoid creating
-                                        // a second full-density bitmap, which can exhaust Android memory.
                                         float rasterScale = 384f / widthPx;
                                         int targetHeight = Math.max(1, (int) Math.ceil(heightPx * rasterScale));
-                                        Bitmap raster = Bitmap.createBitmap(384, targetHeight, Bitmap.Config.ARGB_8888);
+                                        raster = Bitmap.createBitmap(384, targetHeight, Bitmap.Config.ARGB_8888);
                                         Canvas canvas = new Canvas(raster);
                                         canvas.drawColor(Color.WHITE);
                                         canvas.scale(rasterScale, rasterScale);
                                         view.draw(canvas);
                                         data = bitmapToEscPos(raster);
-                                        raster.recycle();
                                     } catch (OutOfMemoryError memoryError) {
-                                        data = null;
-                                        showReceiptPrintError("Kulang ang memory para i-render ang resibo. Paikliin ang resibo at subukan muli.");
+                                        renderFailure = "Kulang ang memory (" + memoryError.getClass().getSimpleName() + ")";
                                     } catch (Exception renderError) {
-                                        data = null;
-                                        showReceiptPrintError("Render error: " + renderError.getClass().getSimpleName());
+                                        String detail = renderError.getMessage();
+                                        renderFailure = "Render error: " + renderError.getClass().getSimpleName()
+                                            + (detail == null || detail.isEmpty() ? "" : " — " + detail);
                                     } finally {
+                                        if (raster != null && !raster.isRecycled()) raster.recycle();
                                         try {
                                             ViewGroup parent = (ViewGroup) view.getParent();
                                             if (parent != null) parent.removeView(view);
@@ -332,7 +330,9 @@ public class MainActivity extends AppCompatActivity {
 
                                     final byte[] printBytes = data;
                                     if (printBytes == null || printBytes.length == 0) {
-                                        showReceiptPrintError("Hindi ma-render ang resibo. Subukan muli.");
+                                        showReceiptPrintError(renderFailure == null
+                                            ? "Walang laman ang render output. Subukan muli."
+                                            : renderFailure);
                                         return;
                                     }
                                     new Thread(() -> {
