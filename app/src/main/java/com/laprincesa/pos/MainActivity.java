@@ -304,13 +304,19 @@ public class MainActivity extends AppCompatActivity {
                                             View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
                                         view.layout(0, 0, widthPx, heightPx);
 
-                                        float rasterScale = 384f / widthPx;
-                                        int targetHeight = Math.max(1, (int) Math.ceil(heightPx * rasterScale));
-                                        raster = Bitmap.createBitmap(384, targetHeight, Bitmap.Config.ARGB_8888);
-                                        Canvas canvas = new Canvas(raster);
-                                        canvas.drawColor(Color.WHITE);
-                                        canvas.scale(rasterScale, rasterScale);
-                                        view.draw(canvas);
+                                        // Restore the earlier full-size WebView capture, then scale
+                                        // to the printer width. Keep this inside the asynchronous UI
+                                        // callback so the old CountDownLatch deadlock cannot return.
+                                        Bitmap original = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
+                                        try {
+                                            Canvas canvas = new Canvas(original);
+                                            canvas.drawColor(Color.WHITE);
+                                            view.draw(canvas);
+                                            int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
+                                            raster = Bitmap.createScaledBitmap(original, 384, targetHeight, true);
+                                        } finally {
+                                            if (!original.isRecycled()) original.recycle();
+                                        }
                                         data = bitmapToEscPos(raster);
                                     } catch (OutOfMemoryError memoryError) {
                                         renderFailure = "Kulang ang memory (" + memoryError.getClass().getSimpleName() + ")";
