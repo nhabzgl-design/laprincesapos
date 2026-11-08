@@ -3359,6 +3359,20 @@ function findReceipt(){var r=null;document.querySelectorAll('div').forEach(funct
 window.printReceiptOnly=async function(){
  var el=findReceipt();
  if(!el){toast('Hindi makita ang resibo');return false}
+ // Native APK: render the exact receipt DOM + its CSS, then print it as a 384-dot raster image.
+ if(nativeAvailable()&&typeof window.NativePrinter.printHtmlBase64==='function'){
+  try{
+   var styles=Array.prototype.map.call(document.querySelectorAll('style'),function(x){return x.outerHTML}).join('\n');
+   var html='<!doctype html><html><head><meta charset="utf-8">'+styles+
+    '<style>html,body{margin:0!important;padding:0!important;width:224px!important;min-width:224px!important;background:#fff!important;color:#000!important}#lp-print-root{width:224px!important;max-width:224px!important;margin:0!important;padding:0!important;background:#fff!important;color:#000!important;zoom:1!important;box-shadow:none!important;border-radius:0!important}#lp-print-root *{box-sizing:border-box!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}</style>'+
+    '</head><body><div id="lp-print-root">'+el.outerHTML+'</div></body></html>';
+   var encoded=btoa(unescape(encodeURIComponent(html)));
+   var ok=!!window.NativePrinter.printHtmlBase64(encoded);
+   if(!ok)toast('Hindi naipadala ang formatted receipt. Suriin ang printer connection.');
+   return ok;
+  }catch(e){toast('Receipt render error: '+(e&&e.message||e));return false}
+ }
+ // Non-native fallback remains text-based; the exact-layout renderer is for the bundled Android APK.
  var WIDTH=32;
  var lines=(el.innerText||'').replace(/\r/g,'').split('\n').map(function(x){return x.trim()}).filter(Boolean);
  var start=lines.findIndex(function(x){return /GARMENT\s*\/\s*ITEM/i.test(x)});
@@ -3367,51 +3381,20 @@ window.printReceiptOnly=async function(){
   var items=[];
   for(var i=start+1;i<end;){
    var line=lines[i++],name=line,qty='';
-   if(line.indexOf('\t')>=0){
-    var parts=line.split('\t').map(function(x){return x.trim()}).filter(Boolean);
-    if(parts.length>1){name=parts[0];qty=parts[parts.length-1]}
-   }else if(/^\d+(?:\.\d+)?$/.test(lines[i]||'')){
-    qty=lines[i++];
-   }
-   if(qty&&/^\d+(?:\.\d+)?$/.test(qty))items.push(name+' x'+qty);
-   else items.push(name);
+   if(line.indexOf('\t')>=0){var parts=line.split('\t').map(function(x){return x.trim()}).filter(Boolean);if(parts.length>1){name=parts[0];qty=parts[parts.length-1]}}
+   else if(/^\d+(?:\.\d+)?$/.test(lines[i]||'')){qty=lines[i++]}
+   items.push(qty&&/^\d+(?:\.\d+)?$/.test(qty)?name+' x'+qty:name);
   }
   var compact=[];
-  for(var j=0;j<items.length;){
-   var one=items[j],two=items[j+1];
-   if(two&&(one+' | '+two).length<=WIDTH){compact.push(one+' | '+two);j+=2}
-   else{compact.push(one);j++}
-  }
+  for(var j=0;j<items.length;){var one=items[j],two=items[j+1];if(two&&(one+' | '+two).length<=WIDTH){compact.push(one+' | '+two);j+=2}else{compact.push(one);j++}}
   lines=lines.slice(0,start+1).concat(compact,lines.slice(end));
  }
- function wrapLine(value){
-  value=String(value||'').replace(/\t+/g,' ').replace(/\s+/g,' ').trim();
-  if(!value)return [];
-  var words=value.split(' '),out=[],row='';
-  words.forEach(function(word){
-   while(word.length>WIDTH){
-    if(row){out.push(row);row=''}
-    out.push(word.slice(0,WIDTH));word=word.slice(WIDTH);
-   }
-   if(!word)return;
-   if(!row)row=word;
-   else if((row+' '+word).length<=WIDTH)row+=' '+word;
-   else{out.push(row);row=word}
-  });
-  if(row)out.push(row);
-  return out;
- }
+ function wrapLine(value){value=String(value||'').replace(/\t+/g,' ').replace(/\s+/g,' ').trim();if(!value)return[];var words=value.split(' '),out=[],row='';words.forEach(function(word){while(word.length>WIDTH){if(row){out.push(row);row=''}out.push(word.slice(0,WIDTH));word=word.slice(WIDTH)}if(!word)return;if(!row)row=word;else if((row+' '+word).length<=WIDTH)row+=' '+word;else{out.push(row);row=word}});if(row)out.push(row);return out}
  var formatted=[];
- lines.forEach(function(line){
-  var parts=line.split('\t').map(function(x){return x.trim()}).filter(Boolean);
-  if(parts.length>1){
-   line=parts[0].match(/:$/)?parts[0]+' '+parts.slice(1).join(' '):parts.join(' | ');
-  }
-  wrapLine(line).forEach(function(x){formatted.push(x)});
- });
+ lines.forEach(function(line){var parts=line.split('\t').map(function(x){return x.trim()}).filter(Boolean);if(parts.length>1)line=parts[0].match(/:$/)?parts[0]+' '+parts.slice(1).join(' '):parts.join(' | ');wrapLine(line).forEach(function(x){formatted.push(x)})});
  if(!formatted.length){toast('Walang laman ang resibo');return false}
  return await out(text2bytes(formatted.join('\n')));
-};
+}
 function mount(){if(document.getElementById('bt-fab'))return;var f=document.createElement('div');f.id='bt-fab';f.innerHTML='<button id="bt-conn">🖨 Connect Printer</button>';document.body.appendChild(f);document.getElementById('bt-conn').onclick=connect}
 if(document.readyState!=='loading')mount();else document.addEventListener('DOMContentLoaded',mount);
 })();
