@@ -218,7 +218,7 @@ public class MainActivity extends AppCompatActivity {
                         renderer.setBackgroundColor(Color.WHITE);
                         renderer.setVerticalScrollBarEnabled(false);
                         renderer.setHorizontalScrollBarEnabled(false);
-                        renderer.setAlpha(0.01f);
+                        renderer.setAlpha(1f);
                         renderer.setClickable(false);
                         renderer.setFocusable(false);
                         if (Build.VERSION.SDK_INT >= 16) {
@@ -230,6 +230,9 @@ public class MainActivity extends AppCompatActivity {
                         ViewGroup decor = (ViewGroup) getWindow().getDecorView();
                         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                             widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
+                        // Keep the renderer off-screen, but fully opaque so view.draw() captures
+                        // solid black text rather than the nearly-transparent UI alpha.
+                        params.leftMargin = -widthPx - 20;
                         decor.addView(renderer, params);
                         renderer.setWebViewClient(new WebViewClient() {
                             @Override
