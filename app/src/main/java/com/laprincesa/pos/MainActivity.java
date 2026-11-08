@@ -15,6 +15,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
+import android.view.View;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -38,6 +39,10 @@ public class MainActivity extends AppCompatActivity {
 
         web = new WebView(this);
         setContentView(web);
+        // Prevent Android/Google Autofill overlays from fighting with the POS password fields.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            web.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS);
+        }
 
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
