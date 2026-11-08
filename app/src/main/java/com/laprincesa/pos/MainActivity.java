@@ -340,6 +340,13 @@ public class MainActivity extends AppCompatActivity {
                                         } finally {
                                             if (!original.isRecycled()) original.recycle();
                                         }
+                                        // Center the printed ink within the 384-dot paper width without
+                                        // scaling the receipt or changing its font sizes and line layout.
+                                        Bitmap centered = centerBitmapHorizontally(raster);
+                                        if (centered != raster) {
+                                            raster.recycle();
+                                            raster = centered;
+                                        }
                                         data = bitmapToEscPos(raster);
                                     } catch (OutOfMemoryError memoryError) {
                                         renderFailure = "Kulang ang memory (" + memoryError.getClass().getSimpleName() + ")";
@@ -400,6 +407,39 @@ public class MainActivity extends AppCompatActivity {
 
         private void showReceiptPrintError(String message) {
             runOnUiThread(() -> Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show());
+        }
+
+        private Bitmap centerBitmapHorizontally(Bitmap source) {
+            int width = source.getWidth();
+            int height = source.getHeight();
+            int left = width;
+            int right = -1;
+
+            // Find the visible receipt content, ignoring near-white anti-aliased pixels.
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < width; x++) {
+                    int color = source.getPixel(x, y);
+                    int luminance = (Color.red(color) * 299
+                        + Color.green(color) * 587
+                        + Color.blue(color) * 114) / 1000;
+                    if (luminance < 245) {
+                        if (x < left) left = x;
+                        if (x > right) right = x;
+                    }
+                }
+            }
+
+            if (right < left) return source;
+            int offset = ((width - 1 - right) - left) / 2;
+            // Never crop any printed pixels when centering.
+            offset = Math.max(-left, Math.min(width - 1 - right, offset));
+            if (offset == 0) return source;
+
+            Bitmap centered = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(centered);
+            canvas.drawColor(Color.WHITE);
+            canvas.drawBitmap(source, (float) offset, 0f, null);
+            return centered;
         }
 
         private byte[] bitmapToEscPos(Bitmap bitmap) throws Exception {
