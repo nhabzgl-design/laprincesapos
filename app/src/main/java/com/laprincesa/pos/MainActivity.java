@@ -256,7 +256,7 @@ public class MainActivity extends AppCompatActivity {
                 final WebView renderer = new WebView(MainActivity.this);
                 try {
                     WebSettings ws = renderer.getSettings();
-                    ws.setJavaScriptEnabled(false);
+                    ws.setJavaScriptEnabled(true);
                     ws.setDomStorageEnabled(false);
                     ws.setDefaultTextEncodingName("UTF-8");
                     renderer.setBackgroundColor(Color.WHITE);
