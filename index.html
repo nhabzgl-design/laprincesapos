@@ -3362,10 +3362,27 @@ window.printReceiptOnly=async function(){
  // Native APK: render the exact receipt DOM + its CSS, then print it as a 384-dot raster image.
  if(nativeAvailable()&&typeof window.NativePrinter.printHtmlBase64==='function'){
   try{
-   var styles=Array.prototype.map.call(document.querySelectorAll('style'),function(x){return x.outerHTML}).join('\n');
-   var html='<!doctype html><html><head><meta charset="utf-8">'+styles+
+   // Freeze computed styles so the receipt keeps inherited fonts, widths, colors and spacing
+   // even though it is rendered outside its original modal/parent containers.
+   var receiptClone=el.cloneNode(true);
+   var sourceNodes=[el].concat(Array.prototype.slice.call(el.querySelectorAll('*')));
+   var cloneNodes=[receiptClone].concat(Array.prototype.slice.call(receiptClone.querySelectorAll('*')));
+   sourceNodes.forEach(function(node,index){
+    var computed=getComputedStyle(node),target=cloneNodes[index];
+    if(!target)return;
+    for(var k=0;k<computed.length;k++){
+     var prop=computed[k],value=computed.getPropertyValue(prop);
+     if(value)target.style.setProperty(prop,value,computed.getPropertyPriority(prop));
+    }
+   });
+   receiptClone.style.setProperty('width','224px','important');
+   receiptClone.style.setProperty('max-width','224px','important');
+   receiptClone.style.setProperty('margin','0','important');
+   receiptClone.style.setProperty('background-color','#fff','important');
+   receiptClone.style.setProperty('color','#000','important');
+   var html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=224, initial-scale=1">'+
     '<style>html,body{margin:0!important;padding:0!important;width:224px!important;min-width:224px!important;background:#fff!important;color:#000!important}#lp-print-root{width:224px!important;max-width:224px!important;margin:0!important;padding:0!important;background:#fff!important;color:#000!important;zoom:1!important;box-shadow:none!important;border-radius:0!important}#lp-print-root *{box-sizing:border-box!important;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}</style>'+
-    '</head><body><div id="lp-print-root">'+el.outerHTML+'</div></body></html>';
+    '</head><body><div id="lp-print-root">'+receiptClone.outerHTML+'</div></body></html>';
    var encoded=btoa(unescape(encodeURIComponent(html)));
    var ok=!!window.NativePrinter.printHtmlBase64(encoded);
    if(!ok)toast('Hindi naipadala ang formatted receipt. Suriin ang printer connection.');
