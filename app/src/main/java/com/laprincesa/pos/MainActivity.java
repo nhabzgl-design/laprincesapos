@@ -332,7 +332,9 @@ public class MainActivity extends AppCompatActivity {
                                         String clean = value == null ? "" : value.replace("\"", "").trim();
                                         int cssHeight = Integer.parseInt(clean);
                                         if (cssHeight <= 0) throw new IllegalStateException("empty receipt layout; JS height=" + clean);
-                                        cssHeight = Math.min(cssHeight, 6000);
+                                        // Keep the entire receipt; the old 6000px ceiling could cut long receipts mid-content.
+                                        // The WebView itself is bounded at 12000 CSS px above.
+                                        cssHeight = Math.min(cssHeight, 11000);
                                         int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
                                         view.setLayoutParams(new FrameLayout.LayoutParams(
                                             widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
@@ -467,6 +469,28 @@ public class MainActivity extends AppCompatActivity {
         private byte[] bitmapToEscPos(Bitmap bitmap) throws Exception {
             int width = bitmap.getWidth();
             int height = bitmap.getHeight();
+
+            // Remove only the unused white tail below the last printed pixel.
+            // This prevents the printer from feeding blank paper after the receipt,
+            // while preserving every printed row (including content in the middle).
+            int lastInkRow = -1;
+            for (int y = height - 1; y >= 0 && lastInkRow < 0; y--) {
+                for (int x = 0; x < width; x++) {
+                    int color = bitmap.getPixel(x, y);
+                    int luminance = (Color.red(color) * 299
+                        + Color.green(color) * 587
+                        + Color.blue(color) * 114) / 1000;
+                    if (luminance < 245) {
+                        lastInkRow = y;
+                        break;
+                    }
+                }
+            }
+            if (lastInkRow < 0) throw new IllegalStateException("blank receipt image");
+            // Retain a small bottom margin after the final printed content.
+            height = Math.min(height, lastInkRow + 13);
+            if (height > 65535) throw new IllegalStateException("receipt image is too long for ESC/POS");
+
             int widthBytes = (width + 7) / 8;
             ByteArrayOutputStream bytes = new ByteArrayOutputStream(8 + widthBytes * height + 8);
             bytes.write(new byte[] { 0x1B, 0x40 });
