@@ -21,6 +21,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Base64;
 import android.webkit.JavascriptInterface;
+import android.webkit.JsPromptResult;
+import android.webkit.JsResult;
+import android.app.AlertDialog;
+import android.text.InputType;
+import android.widget.EditText;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -64,7 +69,41 @@ public class MainActivity extends AppCompatActivity {
         settings.setJavaScriptCanOpenWindowsAutomatically(false);
         settings.setSupportMultipleWindows(false);
 
-        web.setWebChromeClient(new WebChromeClient());
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onJsPrompt(WebView view, String url, String message,
+                                      String defaultValue, JsPromptResult result) {
+                EditText input = new EditText(MainActivity.this);
+                input.setSingleLine(true);
+                input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                if (defaultValue != null) input.setText(defaultValue);
+                input.setSelection(input.getText().length());
+
+                AlertDialog dialog = new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Password Verification")
+                    .setMessage(message)
+                    .setView(input)
+                    .setPositiveButton("Verify", (d, which) ->
+                        result.confirm(input.getText().toString()))
+                    .setNegativeButton("Cancel", (d, which) -> result.cancel())
+                    .create();
+                dialog.setOnCancelListener(d -> result.cancel());
+                dialog.show();
+                input.requestFocus();
+                return true;
+            }
+
+            @Override
+            public boolean onJsAlert(WebView view, String url, String message, JsResult result) {
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("La Princesa POS")
+                    .setMessage(message)
+                    .setPositiveButton("OK", (d, which) -> result.confirm())
+                    .setOnCancelListener(d -> result.cancel())
+                    .show();
+                return true;
+            }
+        });
         web.setWebViewClient(new WebViewClient());
         web.addJavascriptInterface(new NativePrinter(), "NativePrinter");
 
