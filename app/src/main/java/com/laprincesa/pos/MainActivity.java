@@ -47,6 +47,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int PERMISSION_REQUEST = 41;
     private static final UUID SPP = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private String lastMac = "";
+    // Serialize all printer writes so receipt jobs and test/drawer commands cannot overlap.
+    private final Object printerWriteLock = new Object();
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
@@ -244,20 +246,22 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public boolean printBase64(String encoded) {
-            try {
-                if (out == null && !connect(lastMac)) return false;
-                byte[] data = Base64.decode(encoded, Base64.DEFAULT);
-                final int chunkSize = 200;
-                for (int offset = 0; offset < data.length; offset += chunkSize) {
-                    int length = Math.min(chunkSize, data.length - offset);
-                    out.write(data, offset, length);
-                    out.flush();
-                    Thread.sleep(30);
+            synchronized (printerWriteLock) {
+                try {
+                    if (out == null && !connect(lastMac)) return false;
+                    byte[] data = Base64.decode(encoded, Base64.DEFAULT);
+                    final int chunkSize = 200;
+                    for (int offset = 0; offset < data.length; offset += chunkSize) {
+                        int length = Math.min(chunkSize, data.length - offset);
+                        out.write(data, offset, length);
+                        out.flush();
+                        Thread.sleep(30);
+                    }
+                    return true;
+                } catch (Exception e) {
+                    closePrinter();
+                    return false;
                 }
-                return true;
-            } catch (Exception e) {
-                closePrinter();
-                return false;
             }
         }
 
@@ -372,21 +376,25 @@ public class MainActivity extends AppCompatActivity {
                                         return;
                                     }
                                     new Thread(() -> {
-                                        try {
-                                            if (out == null && !connect(lastMac)) {
-                                                showReceiptPrintError("Hindi makakonekta sa printer para sa resibo.");
-                                                return;
+                                        synchronized (printerWriteLock) {
+                                            try {
+                                                if (out == null && !connect(lastMac)) {
+                                                    showReceiptPrintError("Hindi makakonekta sa printer para sa resibo.");
+                                                    return;
+                                                }
+                                                // Match the smaller, slower transfer used by the working test-print path.
+                                                // This gives low-speed Bluetooth thermal printers time to drain their buffers.
+                                                final int chunkSize = 200;
+                                                for (int offset = 0; offset < printBytes.length; offset += chunkSize) {
+                                                    int length = Math.min(chunkSize, printBytes.length - offset);
+                                                    out.write(printBytes, offset, length);
+                                                    out.flush();
+                                                    Thread.sleep(30);
+                                                }
+                                            } catch (Exception e) {
+                                                closePrinter();
+                                                showReceiptPrintError("Nabigo ang pagpapadala ng resibo sa printer.");
                                             }
-                                            final int chunkSize = 1024;
-                                            for (int offset = 0; offset < printBytes.length; offset += chunkSize) {
-                                                int length = Math.min(chunkSize, printBytes.length - offset);
-                                                out.write(printBytes, offset, length);
-                                                out.flush();
-                                                Thread.sleep(12);
-                                            }
-                                        } catch (Exception e) {
-                                            closePrinter();
-                                            showReceiptPrintError("Nabigo ang pagpapadala ng resibo sa printer.");
                                         }
                                     }, "ReceiptPrintWorker").start();
                                 });
