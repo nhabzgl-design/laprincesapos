@@ -520,8 +520,9 @@ public class MainActivity extends AppCompatActivity {
                     bytes.write(value);
                 }
             }
-            // Feed only two short lines; do not send a cutter command to printers without a cutter.
-            bytes.write(new byte[] { 0x0A, 0x0A });
+            // The raster command already prints the complete receipt image.
+            // Do not append LF/feed commands: let the printer stop at the final
+            // retained white margin above instead of advancing extra paper.
             return bytes.toByteArray();
         }
 
