@@ -3382,15 +3382,7 @@ if(document.readyState!=='loading')mount();else document.addEventListener('DOMCo
 })();
 </script>
 <script id="print-hook">
-document.addEventListener('click', function(e){
-  const btn = e.target.closest('button');
-  if(btn && btn.textContent.includes('Print')){
-    e.preventDefault();
-    e.stopPropagation();
-    var card=btn.closest('[data-receipt-order]');
-    if(card&&window.__LP_AUTH_PRINT_RECEIPT)window.__LP_AUTH_PRINT_RECEIPT(window.__LP_CURRENT_RECEIPT);
-  }
-}, true);
+// Receipt printing is handled by the receipt preview's authenticated button.
 </script>
 
 <script id="settings-panel">
