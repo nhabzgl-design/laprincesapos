@@ -58,6 +58,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Required for WebView.draw(Canvas) to include the full HTML document,
+        // not just the currently visible viewport. Without this, long receipts
+        // can lose sections from the middle when captured into the printer bitmap.
+        WebView.enableSlowWholeDocumentDraw();
+
         web = new WebView(this);
         setContentView(web);
         // Prevent Android/Google Autofill overlays from fighting with the POS password fields.
