@@ -3412,7 +3412,7 @@ window.printReceiptOnly=async function(){
  if(!formatted.length){toast('Walang laman ang resibo');return false}
  return await out(text2bytes(formatted.join('\n')));
 }
-function mount(){if(document.getElementById('bt-fab'))return;var f=document.createElement('div');f.id='bt-fab';f.innerHTML='<button id="bt-conn">🖨 Connect Printer</button>';document.body.appendChild(f);document.getElementById('bt-conn').onclick=connect}
+function mount(){if(document.getElementById('bt-fab'))return;var f=document.createElement('div');f.id='bt-fab';f.innerHTML='<button id="bt-conn">🖨 Connect Printer</button>';document.body.appendChild(f);document.getElementById('bt-conn').onclick=function(){connect(false);}}
 if(document.readyState!=='loading')mount();else document.addEventListener('DOMContentLoaded',mount);
 })();
 </script>
