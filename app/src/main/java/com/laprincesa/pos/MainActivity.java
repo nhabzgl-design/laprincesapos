@@ -290,9 +290,12 @@ public class MainActivity extends AppCompatActivity {
                                 value -> {
                                     byte[] data = null;
                                     try {
-                                        String clean = value == null ? "0" : value.replace("\"", "").trim();
+                                        String clean = value == null ? "" : value.replace("\"", "").trim();
                                         int cssHeight = Integer.parseInt(clean);
-                                        cssHeight = Math.max(1, Math.min(cssHeight, 12000));
+                                        if (cssHeight <= 0) throw new IllegalStateException("empty receipt layout");
+                                        // Keep the raster small enough for memory-constrained Android phones.
+                                        // 6,000 CSS px is already far longer than a normal POS receipt.
+                                        cssHeight = Math.min(cssHeight, 6000);
                                         int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
                                         view.setLayoutParams(new FrameLayout.LayoutParams(
                                             widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
@@ -300,17 +303,24 @@ public class MainActivity extends AppCompatActivity {
                                             View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
                                             View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
                                         view.layout(0, 0, widthPx, heightPx);
-                                        Bitmap original = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
-                                        Canvas canvas = new Canvas(original);
+
+                                        // Render directly at the printer's 384-dot width. Avoid creating
+                                        // a second full-density bitmap, which can exhaust Android memory.
+                                        float rasterScale = 384f / widthPx;
+                                        int targetHeight = Math.max(1, (int) Math.ceil(heightPx * rasterScale));
+                                        Bitmap raster = Bitmap.createBitmap(384, targetHeight, Bitmap.Config.ARGB_8888);
+                                        Canvas canvas = new Canvas(raster);
                                         canvas.drawColor(Color.WHITE);
+                                        canvas.scale(rasterScale, rasterScale);
                                         view.draw(canvas);
-                                        int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
-                                        Bitmap scaled = Bitmap.createScaledBitmap(original, 384, targetHeight, true);
-                                        original.recycle();
-                                        data = bitmapToEscPos(scaled);
-                                        scaled.recycle();
-                                    } catch (Exception ignored) {
+                                        data = bitmapToEscPos(raster);
+                                        raster.recycle();
+                                    } catch (OutOfMemoryError memoryError) {
                                         data = null;
+                                        showReceiptPrintError("Kulang ang memory para i-render ang resibo. Paikliin ang resibo at subukan muli.");
+                                    } catch (Exception renderError) {
+                                        data = null;
+                                        showReceiptPrintError("Render error: " + renderError.getClass().getSimpleName());
                                     } finally {
                                         try {
                                             ViewGroup parent = (ViewGroup) view.getParent();
