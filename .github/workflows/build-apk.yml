@@ -40,6 +40,41 @@ jobs:
           cp icon-maskable-512.png app/src/main/res/mipmap-nodpi/ic_launcher.png
           test -s app/src/main/assets/index.html
           test -s app/src/main/res/mipmap-nodpi/ic_launcher.png
+      - name: Validate inline JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          import subprocess, tempfile, os
+          class Scripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.current = None
+                  self.items = []
+              def handle_starttag(self, tag, attrs):
+                  if tag.lower() == "script":
+                      self.current = (dict(attrs), [])
+              def handle_data(self, data):
+                  if self.current is not None:
+                      self.current[1].append(data)
+              def handle_endtag(self, tag):
+                  if tag.lower() == "script" and self.current is not None:
+                      self.items.append((self.current[0], "".join(self.current[1])))
+                      self.current = None
+          parser = Scripts()
+          with open("index.html", encoding="utf-8") as source:
+              parser.feed(source.read())
+          checked = 0
+          for attrs, body in parser.items:
+              if attrs.get("src") or attrs.get("type", "").lower() == "application/json" or not body.strip():
+                  continue
+              suffix = ".mjs" if attrs.get("type", "").lower() == "module" else ".js"
+              path = os.path.join(tempfile.gettempdir(), "lp-inline-%d%s" % (checked, suffix))
+              with open(path, "w", encoding="utf-8") as out:
+                  out.write(body)
+              subprocess.run(["node", "--check", path], check=True)
+              checked += 1
+          print("Validated %d inline JavaScript blocks." % checked)
+          PY
       - name: Build installable debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Upload debug APK
