@@ -49,6 +49,9 @@ public class MainActivity extends AppCompatActivity {
     private String lastMac = "";
     // Serialize all printer writes so receipt jobs and test/drawer commands cannot overlap.
     private final Object printerWriteLock = new Object();
+    // Prevent duplicate receipt jobs while the off-screen WebView is rendering/sending.
+    private final java.util.concurrent.atomic.AtomicBoolean receiptPrintInProgress =
+        new java.util.concurrent.atomic.AtomicBoolean(false);
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     @Override
@@ -267,11 +270,16 @@ public class MainActivity extends AppCompatActivity {
 
         @JavascriptInterface
         public boolean printHtmlBase64(String encodedHtml) {
+            if (!receiptPrintInProgress.compareAndSet(false, true)) {
+                showReceiptPrintError("May kasalukuyang ini-print. Hintaying matapos bago ulitin.");
+                return false;
+            }
             final String html;
             try {
                 byte[] htmlBytes = Base64.decode(encodedHtml, Base64.DEFAULT);
                 html = new String(htmlBytes, StandardCharsets.UTF_8);
             } catch (Exception e) {
+                receiptPrintInProgress.set(false);
                 showReceiptPrintError("Hindi mabasa ang formatted receipt.");
                 return false;
             }
@@ -286,6 +294,8 @@ public class MainActivity extends AppCompatActivity {
                     ws.setJavaScriptEnabled(true);
                     ws.setDomStorageEnabled(false);
                     ws.setDefaultTextEncodingName("UTF-8");
+                    ws.setUseWideViewPort(false);
+                    ws.setLoadWithOverviewMode(false);
                     renderer.setBackgroundColor(Color.WHITE);
                     renderer.setVerticalScrollBarEnabled(false);
                     renderer.setHorizontalScrollBarEnabled(false);
@@ -370,6 +380,7 @@ public class MainActivity extends AppCompatActivity {
 
                                     final byte[] printBytes = data;
                                     if (printBytes == null || printBytes.length == 0) {
+                                        receiptPrintInProgress.set(false);
                                         showReceiptPrintError(renderFailure == null
                                             ? "Walang laman ang render output. Subukan muli."
                                             : renderFailure);
@@ -394,6 +405,8 @@ public class MainActivity extends AppCompatActivity {
                                             } catch (Exception e) {
                                                 closePrinter();
                                                 showReceiptPrintError("Nabigo ang pagpapadala ng resibo sa printer.");
+                                            } finally {
+                                                receiptPrintInProgress.set(false);
                                             }
                                         }
                                     }, "ReceiptPrintWorker").start();
@@ -402,6 +415,7 @@ public class MainActivity extends AppCompatActivity {
                     });
                     renderer.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
                 } catch (Exception e) {
+                    receiptPrintInProgress.set(false);
                     try {
                         ViewGroup parent = (ViewGroup) renderer.getParent();
                         if (parent != null) parent.removeView(renderer);
