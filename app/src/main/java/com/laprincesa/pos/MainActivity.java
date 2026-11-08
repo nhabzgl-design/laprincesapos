@@ -477,7 +477,8 @@ public class MainActivity extends AppCompatActivity {
                     bytes.write(value);
                 }
             }
-            // Feed only two short lines; do not send a cutter command to printers without a cutter.\n            bytes.write(new byte[] { 0x0A, 0x0A });
+            // Feed only two short lines; do not send a cutter command to printers without a cutter.
+            bytes.write(new byte[] { 0x0A, 0x0A });
             return bytes.toByteArray();
         }
 
