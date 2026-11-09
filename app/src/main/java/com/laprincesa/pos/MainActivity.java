@@ -241,7 +241,7 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 pendingBackupBase64 = base64Data;
                 pendingBackupName = (fileName == null || fileName.trim().isEmpty())
-                    ? "LaPrincesa_backup.json" : fileName.replaceAll("[\\\\/:*?\\"<>|]", "_");
+                    ? "LaPrincesa_backup.json" : fileName.replaceAll("[^A-Za-z0-9._-]", "_");
                 try {
                     Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
                     intent.addCategory(Intent.CATEGORY_OPENABLE);
