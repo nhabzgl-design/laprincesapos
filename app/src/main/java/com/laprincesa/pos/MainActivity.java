@@ -396,10 +396,10 @@ public class MainActivity extends AppCompatActivity {
                     int density = Math.round(getResources().getDisplayMetrics().density * 1000f);
                     int cssWidth = Math.max(180, Math.min(420, receiptCssWidth));
                     int widthPx = Math.max(1, Math.round((float) cssWidth * density / 1000f));
-                    // Start with a 1 CSS-pixel viewport so the app's global min-height: 100%
-                    // styles cannot inflate document.scrollHeight with an artificial blank tail.
-                    // The measured WebView is expanded to the actual receipt content height below.
-                    int initialViewportHeightPx = Math.max(1, Math.round(1f * density / 1000f));
+                    // Use the stable 1000 CSS-pixel measurement viewport that preserves
+                    // the receipt's original layout. bitmapToEscPos() trims the unused white
+                    // tail after the final printed pixel, so the printer still stops cleanly.
+                    int initialViewportHeightPx = Math.max(1, Math.round(1000f * density / 1000f));
                     ViewGroup decor = (ViewGroup) getWindow().getDecorView();
                     FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(widthPx, initialViewportHeightPx, Gravity.TOP | Gravity.LEFT);
                     params.leftMargin = -widthPx - 20;
