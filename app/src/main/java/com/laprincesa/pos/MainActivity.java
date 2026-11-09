@@ -361,7 +361,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
-        public boolean printHtmlBase64(String encodedHtml) {
+        public boolean printHtmlBase64(String encodedHtml, int receiptCssWidth) {
             if (!receiptPrintInProgress.compareAndSet(false, true)) {
                 showReceiptPrintError("May kasalukuyang ini-print. Hintaying matapos bago ulitin.");
                 return false;
@@ -399,8 +399,9 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     int density = Math.round(getResources().getDisplayMetrics().density * 1000f);
-                    int widthPx = Math.max(224, Math.round(224f * density / 1000f));
-                    int maxHeightPx = Math.round(18000f * density / 1000f);
+                    int cssWidth = Math.max(180, Math.min(420, receiptCssWidth));
+                    int widthPx = Math.max(1, Math.round((float) cssWidth * density / 1000f));
+                    int maxHeightPx = Math.round(30000f * density / 1000f);
                     ViewGroup decor = (ViewGroup) getWindow().getDecorView();
                     FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                         widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
@@ -424,10 +425,13 @@ public class MainActivity extends AppCompatActivity {
                                         String clean = value == null ? "" : value.replace("\"", "").trim();
                                         int cssHeight = Integer.parseInt(clean);
                                         if (cssHeight <= 0) throw new IllegalStateException("empty receipt layout; JS height=" + clean);
-                                        // Allow longer receipts while keeping the raster within a safe memory budget.
-                                        // The 384-dot output is drawn directly, avoiding a second full-size bitmap.
-                                        cssHeight = Math.min(cssHeight, 17000);
+                                        // Never silently shorten the receipt. Reject only if the complete raster would
+                                        // exceed the explicit memory-safe render limit.
                                         int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
+                                        int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
+                                        if (targetHeight > 30000) {
+                                            throw new IllegalStateException("Receipt is too long to render safely (" + targetHeight + " printer rows).");
+                                        }
                                         view.setLayoutParams(new FrameLayout.LayoutParams(
                                             widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
                                         view.measure(
@@ -437,7 +441,6 @@ public class MainActivity extends AppCompatActivity {
 
                                         // Render directly at the printer's 384-dot width.
                                         // This avoids allocating a second, full-density bitmap for long receipts.
-                                        int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
                                         raster = Bitmap.createBitmap(384, targetHeight, Bitmap.Config.ARGB_8888);
                                         Canvas canvas = new Canvas(raster);
                                         canvas.drawColor(Color.WHITE);
@@ -483,15 +486,16 @@ public class MainActivity extends AppCompatActivity {
                                                     showReceiptPrintError("Hindi makakonekta sa printer para sa resibo.");
                                                     return;
                                                 }
-                                                // Match the smaller, slower transfer used by the working test-print path.
-                                                // This gives low-speed Bluetooth thermal printers time to drain their buffers.
-                                                final int chunkSize = 200;
+                                                // Send bounded chunks. The image itself is split into independent ESC/POS
+                                                // raster bands so printer firmware does not buffer one enormous image command.
+                                                final int chunkSize = 512;
                                                 for (int offset = 0; offset < printBytes.length; offset += chunkSize) {
                                                     int length = Math.min(chunkSize, printBytes.length - offset);
                                                     out.write(printBytes, offset, length);
                                                     out.flush();
-                                                    Thread.sleep(30);
+                                                    Thread.sleep(12);
                                                 }
+                                                out.flush();
                                             } catch (Exception e) {
                                                 closePrinter();
                                                 showReceiptPrintError("Nabigo ang pagpapadala ng resibo sa printer.");
@@ -580,32 +584,36 @@ public class MainActivity extends AppCompatActivity {
             if (height > 65535) throw new IllegalStateException("receipt image is too long for ESC/POS");
 
             int widthBytes = (width + 7) / 8;
+            final int bandRows = 256;
             ByteArrayOutputStream bytes = new ByteArrayOutputStream(8 + widthBytes * height + 8);
             bytes.write(new byte[] { 0x1B, 0x40 });
-            bytes.write(new byte[] {
-                0x1D, 0x76, 0x30, 0x00,
-                (byte) (widthBytes & 0xFF), (byte) ((widthBytes >> 8) & 0xFF),
-                (byte) (height & 0xFF), (byte) ((height >> 8) & 0xFF)
-            });
-            for (int y = 0; y < height; y++) {
-                for (int xb = 0; xb < widthBytes; xb++) {
-                    int value = 0;
-                    for (int bit = 0; bit < 8; bit++) {
-                        int x = xb * 8 + bit;
-                        if (x < width) {
-                            int color = bitmap.getPixel(x, y);
-                            int luminance = (Color.red(color) * 299
-                                + Color.green(color) * 587
-                                + Color.blue(color) * 114) / 1000;
-                            if (luminance < 180) value |= (0x80 >> bit);
+            for (int top = 0; top < height; top += bandRows) {
+                int rows = Math.min(bandRows, height - top);
+                // Each band is its own valid GS v 0 raster command. This is
+                // safer for printers with small Bluetooth and image buffers.
+                bytes.write(new byte[] {
+                    0x1D, 0x76, 0x30, 0x00,
+                    (byte) (widthBytes & 0xFF), (byte) ((widthBytes >> 8) & 0xFF),
+                    (byte) (rows & 0xFF), (byte) ((rows >> 8) & 0xFF)
+                });
+                for (int y = top; y < top + rows; y++) {
+                    for (int xb = 0; xb < widthBytes; xb++) {
+                        int value = 0;
+                        for (int bit = 0; bit < 8; bit++) {
+                            int x = xb * 8 + bit;
+                            if (x < width) {
+                                int color = bitmap.getPixel(x, y);
+                                int luminance = (Color.red(color) * 299
+                                    + Color.green(color) * 587
+                                    + Color.blue(color) * 114) / 1000;
+                                if (luminance < 180) value |= (0x80 >> bit);
+                            }
                         }
+                        bytes.write(value);
                     }
-                    bytes.write(value);
                 }
             }
-            // The raster command already prints the complete receipt image.
-            // Do not append LF/feed commands: let the printer stop at the final
-            // retained white margin above instead of advancing extra paper.
+            // No extra feed command: the final band ends at the receipt's final margin.
             return bytes.toByteArray();
         }
 
