@@ -313,10 +313,14 @@ public class MainActivity extends AppCompatActivity {
 
                     int density = Math.round(getResources().getDisplayMetrics().density * 1000f);
                     int widthPx = Math.max(224, Math.round(224f * density / 1000f));
-                    int maxHeightPx = Math.round(12000f * density / 1000f);
+                    // Keep the off-screen renderer's initial viewport tiny.
+                    // A 12000px-tall initial viewport can make document.scrollHeight
+                    // report the viewport height even for a short receipt, causing
+                    // the raster command to print a huge blank tail.
+                    int initialHeightPx = Math.max(1, Math.round(1f * density / 1000f));
                     ViewGroup decor = (ViewGroup) getWindow().getDecorView();
                     FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                        widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
+                        widthPx, initialHeightPx, Gravity.TOP | Gravity.LEFT);
                     params.leftMargin = -widthPx - 20;
                     decor.addView(renderer, params);
 
