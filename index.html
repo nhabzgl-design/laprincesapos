@@ -3370,7 +3370,7 @@ window.printReceiptOnly=async function(){
    var receiptClone=el.cloneNode(true);
    receiptClone.removeAttribute('style');
    receiptClone.style.cssText='display:block!important;width:'+receiptWidth+'px!important;min-width:'+receiptWidth+'px!important;max-width:'+receiptWidth+'px!important;margin:0!important;box-sizing:border-box!important;position:static!important;transform:none!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important;background:#fff!important;color:#000!important';
-   var appStyles=Array.prototype.map.call(document.querySelectorAll('style'),function(s){return s.textContent||''}).join('\\n');
+   var appStyles=Array.prototype.map.call(document.querySelectorAll('style'),function(s){return s.textContent||''}).join('\n');
    var printBase='<style>html,body{display:block!important;margin:0!important;padding:0!important;width:'+receiptWidth+'px!important;min-width:'+receiptWidth+'px!important;max-width:'+receiptWidth+'px!important;background:#fff!important;color:#000!important;overflow:visible!important}#lp-print-root{display:block!important;width:'+receiptWidth+'px!important;min-width:'+receiptWidth+'px!important;max-width:'+receiptWidth+'px!important;margin:0!important;padding:0!important;background:#fff!important;color:#000!important;overflow:visible!important;position:static!important;transform:none!important}#lp-print-root *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}</style>';
    var html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width='+receiptWidth+', initial-scale=1, maximum-scale=1">'+
     '<style>'+appStyles+'</style>'+printBase+
