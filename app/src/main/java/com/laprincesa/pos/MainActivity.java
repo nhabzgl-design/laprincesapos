@@ -376,9 +376,6 @@ public class MainActivity extends AppCompatActivity {
                 return false;
             }
 
-            // Do not wait for WebView rendering here. JavaScript bridge calls can arrive
-            // on the WebView UI thread; waiting for onPageFinished on that same thread
-            // deadlocks until the caller times out.
             runOnUiThread(() -> {
                 final WebView renderer = new WebView(MainActivity.this);
                 try {
@@ -394,100 +391,74 @@ public class MainActivity extends AppCompatActivity {
                     renderer.setAlpha(1f);
                     renderer.setClickable(false);
                     renderer.setFocusable(false);
-                    if (Build.VERSION.SDK_INT >= 16) {
-                        renderer.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-                    }
+                    if (Build.VERSION.SDK_INT >= 16) renderer.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
 
                     int density = Math.round(getResources().getDisplayMetrics().density * 1000f);
                     int cssWidth = Math.max(180, Math.min(420, receiptCssWidth));
                     int widthPx = Math.max(1, Math.round((float) cssWidth * density / 1000f));
                     int maxHeightPx = Math.round(30000f * density / 1000f);
                     ViewGroup decor = (ViewGroup) getWindow().getDecorView();
-                    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                        widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
+                    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
                     params.leftMargin = -widthPx - 20;
                     decor.addView(renderer, params);
 
                     renderer.setWebViewClient(new WebViewClient() {
                         private boolean handled = false;
-
                         @Override
                         public void onPageFinished(WebView view, String url) {
                             if (handled) return;
                             handled = true;
-                            view.evaluateJavascript(
-                                "String(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight))",
-                                value -> {
-                                    byte[] data = null;
-                                    String renderFailure = null;
-                                    Bitmap raster = null;
+                            view.evaluateJavascript("String(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight))", value -> {
+                                byte[] data = null;
+                                String renderFailure = null;
+                                Bitmap raster = null;
+                                try {
+                                    String clean = value == null ? "" : value.replace("\"", "").trim();
+                                    int cssHeight = Integer.parseInt(clean);
+                                    if (cssHeight <= 0) throw new IllegalStateException("empty receipt layout; JS height=" + clean);
+                                    int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
+                                    int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
+                                    if (targetHeight > 30000) throw new IllegalStateException("Receipt is too long to render safely (" + targetHeight + " printer rows).");
+                                    view.setLayoutParams(new FrameLayout.LayoutParams(widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
+                                    view.measure(View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
+                                    view.layout(0, 0, widthPx, heightPx);
+                                    raster = Bitmap.createBitmap(384, targetHeight, Bitmap.Config.ARGB_8888);
+                                    Canvas canvas = new Canvas(raster);
+                                    canvas.drawColor(Color.WHITE);
+                                    canvas.scale(384f / widthPx, 384f / widthPx);
+                                    view.draw(canvas);
+                                    Bitmap centered = centerBitmapHorizontally(raster);
+                                    if (centered != raster) { raster.recycle(); raster = centered; }
+                                    data = bitmapToEscPos(raster);
+                                } catch (OutOfMemoryError e) {
+                                    renderFailure = "Kulang ang memory sa pag-render ng buong resibo.";
+                                } catch (Exception e) {
+                                    String detail = e.getMessage();
+                                    renderFailure = "Render error: " + e.getClass().getSimpleName() + (detail == null || detail.isEmpty() ? "" : " — " + detail);
+                                } finally {
+                                    if (raster != null && !raster.isRecycled()) raster.recycle();
                                     try {
-                                        String clean = value == null ? "" : value.replace("\"", "").trim();
-                                        int cssHeight = Integer.parseInt(clean);
-                                        if (cssHeight <= 0) throw new IllegalStateException("empty receipt layout; JS height=" + clean);
-                                        // Never silently shorten the receipt. Reject only if the complete raster would
-                                        // exceed the explicit memory-safe render limit.
-                                        int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
-                                        int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
-                                        if (targetHeight > 30000) {
-                                            throw new IllegalStateException("Receipt is too long to render safely (" + targetHeight + " printer rows).");
-                                        }
-                                        view.setLayoutParams(new FrameLayout.LayoutParams(
-                                            widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
-                                        view.measure(
-                                            View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
-                                            View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
-                                        view.layout(0, 0, widthPx, heightPx);
+                                        ViewGroup parent = (ViewGroup) view.getParent();
+                                        if (parent != null) parent.removeView(view);
+                                        view.stopLoading();
+                                        view.destroy();
+                                    } catch (Exception ignored) {}
+                                }
 
-                                        // Render directly at the printer's 384-dot width.
-                                        // This avoids allocating a second, full-density bitmap for long receipts.
-                                        raster = Bitmap.createBitmap(384, targetHeight, Bitmap.Config.ARGB_8888);
-                                        Canvas canvas = new Canvas(raster);
-                                        canvas.drawColor(Color.WHITE);
-                                        float printScale = 384f / widthPx;
-                                        canvas.scale(printScale, printScale);
-                                        view.draw(canvas);
-                                        // Center the printed ink within the 384-dot paper width without
-                                        // scaling the receipt or changing its font sizes and line layout.
-                                        Bitmap centered = centerBitmapHorizontally(raster);
-                                        if (centered != raster) {
-                                            raster.recycle();
-                                            raster = centered;
-                                        }
-                                        data = bitmapToEscPos(raster);
-                                    } catch (OutOfMemoryError memoryError) {
-                                        renderFailure = "Kulang ang memory (" + memoryError.getClass().getSimpleName() + ")";
-                                    } catch (Exception renderError) {
-                                        String detail = renderError.getMessage();
-                                        renderFailure = "Render error: " + renderError.getClass().getSimpleName()
-                                            + (detail == null || detail.isEmpty() ? "" : " — " + detail);
-                                    } finally {
-                                        if (raster != null && !raster.isRecycled()) raster.recycle();
+                                final byte[] printBytes = data;
+                                if (printBytes == null || printBytes.length == 0) {
+                                    receiptPrintInProgress.set(false);
+                                    finishReceiptPrint(false, renderFailure == null ? "Walang laman ang render output. Subukan muli." : renderFailure);
+                                    return;
+                                }
+                                new Thread(() -> {
+                                    boolean success = false;
+                                    String failure = "Nabigo ang pagpapadala ng resibo sa printer.";
+                                    synchronized (printerWriteLock) {
                                         try {
-                                            ViewGroup parent = (ViewGroup) view.getParent();
-                                            if (parent != null) parent.removeView(view);
-                                            view.stopLoading();
-                                            view.destroy();
-                                        } catch (Exception ignored) {}
-                                    }
-
-                                    final byte[] printBytes = data;
-                                    if (printBytes == null || printBytes.length == 0) {
-                                        receiptPrintInProgress.set(false);
-                                        showReceiptPrintError(renderFailure == null
-                                            ? "Walang laman ang render output. Subukan muli."
-                                            : renderFailure);
-                                        return;
-                                    }
-                                    new Thread(() -> {
-                                        synchronized (printerWriteLock) {
-                                            try {
-                                                if (out == null && !connect(lastMac)) {
-                                                    showReceiptPrintError("Hindi makakonekta sa printer para sa resibo.");
-                                                    return;
-                                                }
-                                                // Send bounded chunks. The image itself is split into independent ESC/POS
-                                                // raster bands so printer firmware does not buffer one enormous image command.
+                                            if (out == null && !connect(lastMac)) {
+                                                failure = "Hindi makakonekta sa printer para sa resibo.";
+                                            } else {
                                                 final int chunkSize = 200;
                                                 for (int offset = 0; offset < printBytes.length; offset += chunkSize) {
                                                     int length = Math.min(chunkSize, printBytes.length - offset);
@@ -496,15 +467,18 @@ public class MainActivity extends AppCompatActivity {
                                                     Thread.sleep(30);
                                                 }
                                                 out.flush();
-                                            } catch (Exception e) {
-                                                closePrinter();
-                                                showReceiptPrintError("Nabigo ang pagpapadala ng resibo sa printer.");
-                                            } finally {
-                                                receiptPrintInProgress.set(false);
+                                                success = true;
+                                                failure = "";
                                             }
+                                        } catch (Exception e) {
+                                            closePrinter();
+                                        } finally {
+                                            receiptPrintInProgress.set(false);
                                         }
-                                    }, "ReceiptPrintWorker").start();
-                                });
+                                    }
+                                    finishReceiptPrint(success, failure);
+                                }, "ReceiptPrintWorker").start();
+                            });
                         }
                     });
                     renderer.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
@@ -515,10 +489,21 @@ public class MainActivity extends AppCompatActivity {
                         if (parent != null) parent.removeView(renderer);
                         renderer.destroy();
                     } catch (Exception ignored) {}
-                    showReceiptPrintError("Hindi masimulan ang pag-render ng resibo.");
+                    finishReceiptPrint(false, "Hindi masimulan ang pag-render ng resibo.");
                 }
             });
             return true;
+        }
+
+        private void finishReceiptPrint(boolean success, String message) {
+            runOnUiThread(() -> {
+                if (!success && message != null && !message.isEmpty()) {
+                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                }
+                try {
+                    web.evaluateJavascript("if(window.__lpNativeReceiptDone){window.__lpNativeReceiptDone(" + success + ",\"" + jsonEscape(message == null ? "" : message) + "\");}", null);
+                } catch (Exception ignored) {}
+            });
         }
 
         private void showReceiptPrintError(String message) {
