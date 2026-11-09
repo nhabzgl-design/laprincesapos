@@ -3377,8 +3377,17 @@ window.printReceiptOnly=async function(){
     '</head><body><div id="lp-print-root">'+receiptClone.outerHTML+'</div></body></html>';
    var encoded=btoa(unescape(encodeURIComponent(html)));
    var ok=!!window.NativePrinter.printHtmlBase64(encoded,receiptWidth);
-   if(!ok)toast('Hindi naipadala ang formatted receipt. Suriin ang printer connection.');
-   return ok;
+   if(!ok){toast('Hindi naipadala ang formatted receipt. Suriin ang printer connection.');return false}
+   return await new Promise(function(resolve){
+    var settled=false;
+    var timer=setTimeout(function(){if(settled)return;settled=true;window.__lpNativeReceiptDone=null;toast('Walang kumpirmasyon mula sa printer. Suriin kung kumpleto ang resibo bago ulitin.');resolve(false)},180000);
+    window.__lpNativeReceiptDone=function(success,message){
+     if(settled)return;
+     settled=true;clearTimeout(timer);window.__lpNativeReceiptDone=null;
+     if(!success&&message)toast(message);
+     resolve(!!success);
+    };
+   });
   }catch(e){toast('Receipt render error: '+(e&&e.message||e));return false}
  }
  // Non-native fallback remains text-based; the exact-layout renderer is for the bundled Android APK.
