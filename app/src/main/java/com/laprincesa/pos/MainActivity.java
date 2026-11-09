@@ -17,6 +17,8 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.pm.PackageManager;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Base64;
@@ -27,6 +29,7 @@ import android.app.AlertDialog;
 import android.text.InputType;
 import android.widget.EditText;
 import android.webkit.WebChromeClient;
+import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -43,6 +46,11 @@ import java.util.UUID;
 public class MainActivity extends AppCompatActivity {
     private WebView web;
     private BluetoothSocket socket;
+    private ValueCallback<Uri[]> backupFilePathCallback;
+    private String pendingBackupBase64 = null;
+    private String pendingBackupName = "LaPrincesa_backup.json";
+    private static final int BACKUP_IMPORT_REQUEST = 52;
+    private static final int BACKUP_EXPORT_REQUEST = 53;
     private OutputStream out;
     private static final int PERMISSION_REQUEST = 41;
     private static final UUID SPP = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
@@ -136,9 +144,32 @@ public class MainActivity extends AppCompatActivity {
                     .show();
                 return true;
             }
+
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePathCallback,
+                                             FileChooserParams fileChooserParams) {
+                if (backupFilePathCallback != null) backupFilePathCallback.onReceiveValue(null);
+                backupFilePathCallback = filePathCallback;
+                try {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                    intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                        "application/json", "text/json", "application/octet-stream"
+                    });
+                    startActivityForResult(intent, BACKUP_IMPORT_REQUEST);
+                    return true;
+                } catch (Exception e) {
+                    backupFilePathCallback = null;
+                    filePathCallback.onReceiveValue(null);
+                    Toast.makeText(MainActivity.this, "Hindi mabuksan ang file picker.", Toast.LENGTH_LONG).show();
+                    return false;
+                }
+            }
         });
         web.setWebViewClient(new WebViewClient());
         web.addJavascriptInterface(new NativePrinter(), "NativePrinter");
+        web.addJavascriptInterface(new NativeBackup(), "NativeBackup");
 
         // Load the POS bundled inside this APK. This avoids dependence on GitHub Pages,
         // network availability, redirects, and remote WebView startup failures.
@@ -166,6 +197,62 @@ public class MainActivity extends AppCompatActivity {
         } else if (Build.VERSION.SDK_INT >= 23 &&
                 ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.ACCESS_FINE_LOCATION }, PERMISSION_REQUEST);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == BACKUP_IMPORT_REQUEST) {
+            if (backupFilePathCallback != null) {
+                Uri[] result = (resultCode == RESULT_OK && data != null && data.getData() != null)
+                    ? new Uri[] { data.getData() } : null;
+                backupFilePathCallback.onReceiveValue(result);
+                backupFilePathCallback = null;
+            }
+            return;
+        }
+        if (requestCode == BACKUP_EXPORT_REQUEST) {
+            Uri uri = (resultCode == RESULT_OK && data != null) ? data.getData() : null;
+            String encoded = pendingBackupBase64;
+            pendingBackupBase64 = null;
+            if (uri == null || encoded == null) {
+                Toast.makeText(this, "Kinansela ang pag-save ng backup.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            try (OutputStream stream = getContentResolver().openOutputStream(uri)) {
+                if (stream == null) throw new IllegalStateException("Hindi mabuksan ang napiling lokasyon.");
+                stream.write(Base64.decode(encoded, Base64.DEFAULT));
+                stream.flush();
+                Toast.makeText(this, "Matagumpay na na-save ang backup file.", Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "Hindi na-save ang backup: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private class NativeBackup {
+        @JavascriptInterface
+        public void saveBackup(String base64Data, String fileName) {
+            if (base64Data == null || base64Data.isEmpty()) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Walang laman ang backup.", Toast.LENGTH_SHORT).show());
+                return;
+            }
+            runOnUiThread(() -> {
+                pendingBackupBase64 = base64Data;
+                pendingBackupName = (fileName == null || fileName.trim().isEmpty())
+                    ? "LaPrincesa_backup.json" : fileName.replaceAll("[\\\\/:*?\\"<>|]", "_");
+                try {
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/json");
+                    intent.putExtra(Intent.EXTRA_TITLE, pendingBackupName);
+                    startActivityForResult(intent, BACKUP_EXPORT_REQUEST);
+                } catch (Exception e) {
+                    pendingBackupBase64 = null;
+                    Toast.makeText(MainActivity.this, "Hindi mabuksan ang Save dialog.", Toast.LENGTH_LONG).show();
+                }
+            });
         }
     }
 
