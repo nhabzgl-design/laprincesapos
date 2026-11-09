@@ -396,9 +396,13 @@ public class MainActivity extends AppCompatActivity {
                     int density = Math.round(getResources().getDisplayMetrics().density * 1000f);
                     int cssWidth = Math.max(180, Math.min(420, receiptCssWidth));
                     int widthPx = Math.max(1, Math.round((float) cssWidth * density / 1000f));
-                    int maxHeightPx = Math.round(30000f * density / 1000f);
+                    // Keep the measurement WebView viewport modest. A 30,000px initial viewport
+                    // was being reported as document.scrollHeight, producing 51,429 printer rows
+                    // for a normal 224px-wide receipt before any real content was measured.
+                    // The document can still grow beyond this viewport for genuinely long receipts.
+                    int initialViewportHeightPx = Math.round(1000f * density / 1000f);
                     ViewGroup decor = (ViewGroup) getWindow().getDecorView();
-                    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
+                    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(widthPx, initialViewportHeightPx, Gravity.TOP | Gravity.LEFT);
                     params.leftMargin = -widthPx - 20;
                     decor.addView(renderer, params);
 
