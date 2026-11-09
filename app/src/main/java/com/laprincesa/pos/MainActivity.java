@@ -488,12 +488,12 @@ public class MainActivity extends AppCompatActivity {
                                                 }
                                                 // Send bounded chunks. The image itself is split into independent ESC/POS
                                                 // raster bands so printer firmware does not buffer one enormous image command.
-                                                final int chunkSize = 512;
+                                                final int chunkSize = 200;
                                                 for (int offset = 0; offset < printBytes.length; offset += chunkSize) {
                                                     int length = Math.min(chunkSize, printBytes.length - offset);
                                                     out.write(printBytes, offset, length);
                                                     out.flush();
-                                                    Thread.sleep(12);
+                                                    Thread.sleep(30);
                                                 }
                                                 out.flush();
                                             } catch (Exception e) {
