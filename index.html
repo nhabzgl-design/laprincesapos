@@ -3379,8 +3379,6 @@ window.printReceiptOnly=async function(){
    var ok=!!window.NativePrinter.printHtmlBase64(encoded,receiptWidth);
    if(!ok)toast('Hindi naipadala ang formatted receipt. Suriin ang printer connection.');
    return ok;
-   if(!ok)toast('Hindi naipadala ang formatted receipt. Suriin ang printer connection.');
-   return ok;
   }catch(e){toast('Receipt render error: '+(e&&e.message||e));return false}
  }
  // Non-native fallback remains text-based; the exact-layout renderer is for the bundled Android APK.
