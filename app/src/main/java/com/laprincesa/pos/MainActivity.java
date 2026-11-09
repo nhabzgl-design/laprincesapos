@@ -167,7 +167,33 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            private boolean openFacebookLink(String url) {
+                if (url == null) return false;
+                Uri uri = Uri.parse(url);
+                String host = uri.getHost();
+                if (host == null || !(host.equalsIgnoreCase("facebook.com") || host.endsWith(".facebook.com"))) {
+                    return false;
+                }
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                    startActivity(intent);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+                return openFacebookLink(request.getUrl().toString());
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return openFacebookLink(url);
+            }
+        });
         web.addJavascriptInterface(new NativePrinter(), "NativePrinter");
         web.addJavascriptInterface(new NativeBackup(), "NativeBackup");
 
