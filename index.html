@@ -3355,7 +3355,7 @@ function text2bytes(t){t=t.replace(/₱/g,'P').replace(/[•·]/g,'-').replace(/
  var lines=t.split('\n').map(function(x){return x.replace(/\s+$/,'')}).filter(function(x,i,a){return x||(a[i-1])});
  return [27,64].concat(enc(lines.join('\n')),[10,10,10,29,86,66,0])}
 window.BTP={connect:connect,drawer:function(opts){if(!(opts&&opts.authorized))return Promise.resolve(false);return out(DRAW)},raw:out,testPrint:function(){return out(text2bytes("LA PRINCESA AQUASPIN"+String.fromCharCode(10)+"PRINTER TEST"+String.fromCharCode(10)+"POS58 / ESC-POS"+String.fromCharCode(10,10)))},mode:printerMode,setMode:function(v){localStorage.setItem("laPrincesa_printer_mode_v1",v);return v},status:function(){var list=[];try{if(nativeAvailable())list=JSON.parse(window.NativePrinter.listPrinters()||"[]")}catch(e){}return{mode:printerMode(),native:nativeAvailable(),paired:list,webBluetooth:!!navigator.bluetooth,webConnected:!!(ch&&dev&&dev.gatt&&dev.gatt.connected)}}};
-function findReceipt(){var r=null;document.querySelectorAll('div').forEach(function(d){var t=d.innerText||'';if(t.includes('Receipt No:')&&t.includes('TOTAL AMOUNT')&&t.includes('System Generated')&&(!r||t.length<r.innerText.length))r=d});return r}
+function findReceipt(){var matches=[];document.querySelectorAll('div').forEach(function(d){var t=d.innerText||'';if(t.includes('Receipt No:')&&t.includes('TOTAL AMOUNT')&&t.includes('System Generated'))matches.push(d)});var paper=matches.find(function(d){var w=d.getBoundingClientRect().width;return d.classList.contains('bg-white')&&w>=200&&w<=260});return paper||matches.reduce(function(best,d){return !best||(d.innerText||'').length<(best.innerText||'').length?d:best},null)}
 window.printReceiptOnly=async function(){
  var el=findReceipt();
  if(!el){toast('Hindi makita ang resibo');return false}
@@ -3369,6 +3369,23 @@ window.printReceiptOnly=async function(){
    var receiptWidth=Math.max(180,Math.min(420,Math.ceil(el.getBoundingClientRect().width||224)));
    var receiptClone=el.cloneNode(true);
    receiptClone.removeAttribute('style');
+   // Keep each receipt row inside the paper width. Grid columns prevent long
+   // customer/item/branch details from colliding with the amount column.
+   receiptClone.querySelectorAll('.flex.justify-between').forEach(function(row){
+    row.style.display='grid';
+    row.style.gridTemplateColumns='minmax(0,1fr) auto';
+    row.style.columnGap='6px';
+    row.style.alignItems='start';
+    Array.prototype.forEach.call(row.children,function(child,index){
+     child.style.minWidth='0';
+     child.style.whiteSpace='normal';
+     child.style.overflowWrap='anywhere';
+     if(index===row.children.length-1){child.style.textAlign='right';child.style.maxWidth='100%'}
+    });
+   });
+   receiptClone.querySelectorAll('.truncate').forEach(function(node){
+    node.style.whiteSpace='normal';node.style.overflow='visible';node.style.textOverflow='clip';node.style.overflowWrap='anywhere';node.style.minWidth='0';
+   });
    receiptClone.style.cssText='display:block!important;width:'+receiptWidth+'px!important;min-width:'+receiptWidth+'px!important;max-width:'+receiptWidth+'px!important;margin:0!important;box-sizing:border-box!important;position:static!important;transform:none!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important;background:#fff!important;color:#000!important';
    var appStyles=Array.prototype.map.call(document.querySelectorAll('style'),function(s){return s.textContent||''}).join('\n');
    var printBase='<style>html,body{display:block!important;margin:0!important;padding:0!important;width:'+receiptWidth+'px!important;min-width:'+receiptWidth+'px!important;max-width:'+receiptWidth+'px!important;background:#fff!important;color:#000!important;overflow:visible!important}#lp-print-root{display:block!important;width:'+receiptWidth+'px!important;min-width:'+receiptWidth+'px!important;max-width:'+receiptWidth+'px!important;margin:0!important;padding:0!important;background:#fff!important;color:#000!important;overflow:visible!important;position:static!important;transform:none!important}#lp-print-root *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}</style>';
@@ -3687,22 +3704,26 @@ window.__LP_AUTH_PRINT_RECEIPT=async function(order){
  var s=getSession();if(!s||!order)return false;
  var p=window.prompt('Ilagay ang kasalukuyang login password ni '+s.u+' para mag-print ng resibo:');if(p===null)return false;
  var ok=await window.__LP_VERIFY_LOGIN(s.u,p);p='';
- lpLog({event:'password_verification',origin:'receipt_print',transactionId:String(order.id||order.orderNo||''),amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:ok?'success':'failure'});
- if(!ok){window.alert('Mali ang password. Hindi na-print ang resibo.');return false}
- var printed=!!(window.printReceiptOnly&&await window.printReceiptOnly());
- lpLog({event:'receipt_print',origin:'receipt',transactionId:String(order.id||order.orderNo||''),amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:printed?'command_sent':'failed'});
- if(!printed)return false;
- var key='laPrincesa_receipt_state_v1',states={};try{states=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){}
  var id=String(order.id||order.orderNo||'');
- var first=!states[id]||!states[id].printed;
+ lpLog({event:'password_verification',origin:'receipt_print',transactionId:id,amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:ok?'success':'failure'});
+ if(!ok){window.alert('Mali ang password. Hindi na-print ang resibo.');return false}
+ var key='laPrincesa_receipt_state_v1',states={};try{states=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){}
+ states[id]=states[id]||{};
+ // Open the drawer BEFORE the first cash receipt is sent. Mark the attempt
+ // first so a failed/retried print cannot unexpectedly pulse the drawer twice.
+ if(String(order.payMethod||'').trim().toLowerCase()==='cash'&&!states[id].drawerAttempted){
+  states[id].drawerAttempted=true;states[id].drawerAt=new Date().toISOString();
+  localStorage.setItem(key,JSON.stringify(states));
+  var drawerSent=!!(window.BTP&&await window.BTP.drawer({authorized:true}));
+  states[id].drawerResult=drawerSent?'command_sent':'failed';
+  localStorage.setItem(key,JSON.stringify(states));
+  lpLog({event:'drawer',origin:'automatic_before_first_cash_receipt',transactionId:id,amount:Number(order.total)||0,paymentMethod:'Cash',result:drawerSent?'command_sent':'failed'});
+ }
+ var printed=!!(window.printReceiptOnly&&await window.printReceiptOnly());
+ lpLog({event:'receipt_print',origin:'receipt',transactionId:id,amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:printed?'command_sent':'failed'});
+ if(!printed)return false;
  states[id]=Object.assign({},states[id]||{},{printed:true,printedAt:new Date().toISOString()});
  localStorage.setItem(key,JSON.stringify(states));
- if(first&&String(order.payMethod||'').trim().toLowerCase()==='cash'){
-  var drawerSent=!!(window.BTP&&await window.BTP.drawer({authorized:true}));
-  states[id].drawerAttempted=true;states[id].drawerResult=drawerSent?'command_sent':'failed';states[id].drawerAt=new Date().toISOString();
-  localStorage.setItem(key,JSON.stringify(states));
-  lpLog({event:'drawer',origin:'automatic_after_first_cash_receipt',transactionId:id,amount:Number(order.total)||0,paymentMethod:'Cash',result:drawerSent?'command_sent':'failed'});
- }
  return true;
 };
 function setSession(u,remember){var v=JSON.stringify({u:u.u});sessionStorage.removeItem(SK);localStorage.removeItem(SK);(remember?localStorage:sessionStorage).setItem(SK,v)}
