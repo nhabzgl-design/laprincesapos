@@ -400,7 +400,7 @@ public class MainActivity extends AppCompatActivity {
 
                     int density = Math.round(getResources().getDisplayMetrics().density * 1000f);
                     int widthPx = Math.max(224, Math.round(224f * density / 1000f));
-                    int maxHeightPx = Math.round(12000f * density / 1000f);
+                    int maxHeightPx = Math.round(18000f * density / 1000f);
                     ViewGroup decor = (ViewGroup) getWindow().getDecorView();
                     FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
                         widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
@@ -424,9 +424,9 @@ public class MainActivity extends AppCompatActivity {
                                         String clean = value == null ? "" : value.replace("\"", "").trim();
                                         int cssHeight = Integer.parseInt(clean);
                                         if (cssHeight <= 0) throw new IllegalStateException("empty receipt layout; JS height=" + clean);
-                                        // Keep the entire receipt; the old 6000px ceiling could cut long receipts mid-content.
-                                        // The WebView itself is bounded at 12000 CSS px above.
-                                        cssHeight = Math.min(cssHeight, 11000);
+                                        // Allow longer receipts while keeping the raster within a safe memory budget.
+                                        // The 384-dot output is drawn directly, avoiding a second full-size bitmap.
+                                        cssHeight = Math.min(cssHeight, 17000);
                                         int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
                                         view.setLayoutParams(new FrameLayout.LayoutParams(
                                             widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
@@ -435,19 +435,15 @@ public class MainActivity extends AppCompatActivity {
                                             View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
                                         view.layout(0, 0, widthPx, heightPx);
 
-                                        // Restore the earlier full-size WebView capture, then scale
-                                        // to the printer width. Keep this inside the asynchronous UI
-                                        // callback so the old CountDownLatch deadlock cannot return.
-                                        Bitmap original = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
-                                        try {
-                                            Canvas canvas = new Canvas(original);
-                                            canvas.drawColor(Color.WHITE);
-                                            view.draw(canvas);
-                                            int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
-                                            raster = Bitmap.createScaledBitmap(original, 384, targetHeight, true);
-                                        } finally {
-                                            if (!original.isRecycled()) original.recycle();
-                                        }
+                                        // Render directly at the printer's 384-dot width.
+                                        // This avoids allocating a second, full-density bitmap for long receipts.
+                                        int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
+                                        raster = Bitmap.createBitmap(384, targetHeight, Bitmap.Config.ARGB_8888);
+                                        Canvas canvas = new Canvas(raster);
+                                        canvas.drawColor(Color.WHITE);
+                                        float printScale = 384f / widthPx;
+                                        canvas.scale(printScale, printScale);
+                                        view.draw(canvas);
                                         // Center the printed ink within the 384-dot paper width without
                                         // scaling the receipt or changing its font sizes and line layout.
                                         Bitmap centered = centerBitmapHorizontally(raster);
