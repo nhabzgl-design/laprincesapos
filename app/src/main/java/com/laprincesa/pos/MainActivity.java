@@ -572,7 +572,7 @@ public class MainActivity extends AppCompatActivity {
                     int luminance = (Color.red(color) * 299
                         + Color.green(color) * 587
                         + Color.blue(color) * 114) / 1000;
-                    if (luminance < 245) {
+                    if (luminance < 180) {
                         lastInkRow = y;
                         break;
                     }
