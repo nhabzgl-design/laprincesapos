@@ -2,7 +2,7 @@ name: Build Native APK
 
 on:
   push:
-    branches: [ main, fix-main-apk-workflow ]
+    branches: [ main, fix-main-apk-workflow, fix/order-queue-vertical-scroll ]
   pull_request:
     branches: [ main, fix/calendar-on-223-preserve-print ]
   workflow_dispatch:
