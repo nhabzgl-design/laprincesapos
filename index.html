@@ -3968,5 +3968,36 @@ if(document.body)start();else document.addEventListener('DOMContentLoaded',start
 })();
 
 </script>
+
+<script id="lp-storage-history">
+(function(){
+if(document.getElementById('lp-storage-history-btn'))return;
+var P='laPrincesa_', ORDER=P+'orders_v2';
+function esc(v){return String(v==null?'':v).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function readOrders(){try{var x=JSON.parse(localStorage.getItem(ORDER)||'[]');return Array.isArray(x)?x:[]}catch(e){return []}}
+function download(name,obj){var b=new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},1500)}
+function stamp(){return new Date().toISOString().replace(/[:.]/g,'-')}
+function backup(){var data={};for(var i=0;i<localStorage.length;i++){var k=localStorage.key(i);if(k&&k.indexOf(P)===0)data[k]=localStorage.getItem(k)}var keys=Object.keys(data);if(!keys.length){alert('Walang La Princesa POS data na nakita sa device na ito.');return false}download('LaPrincesa_FULL_BACKUP_'+stamp()+'.json',{app:'La Princesa AquaSpin POS',type:'full-backup',version:1,createdAt:new Date().toISOString(),keys:keys.length,data:data});try{localStorage.setItem(P+'lastBackup',new Date().toISOString())}catch(e){}return true}
+var css=document.createElement('style');css.textContent='#lp-storage-history-btn{position:fixed;right:14px;bottom:86px;z-index:99980;background:#1d4ed8;color:#fff;border:0;border-radius:999px;padding:12px 16px;font:800 12px system-ui;box-shadow:0 5px 18px #0005}#lp-sh-overlay{position:fixed;inset:0;z-index:99990;background:#0009;display:flex;align-items:center;justify-content:center;padding:12px;font:13px system-ui}#lp-sh-panel{background:#fff;color:#172033;width:min(680px,100%);max-height:90vh;overflow:auto;border-radius:18px;padding:16px;box-shadow:0 12px 40px #0005}#lp-sh-panel button{border:0;border-radius:9px;padding:10px 12px;font-weight:800}#lp-sh-panel .primary{background:#1d4ed8;color:white}#lp-sh-panel .muted{background:#e5e7eb;color:#111827}#lp-sh-list{max-height:42vh;overflow:auto;border:1px solid #ddd;border-radius:10px;margin:12px 0}#lp-sh-list label{display:flex;gap:9px;align-items:flex-start;padding:9px;border-bottom:1px solid #eee}#lp-sh-panel input[type=file]{max-width:100%}';document.head.appendChild(css);
+var btn=document.createElement('button');btn.id='lp-storage-history-btn';btn.textContent='🗄 Storage & History';btn.onclick=openPanel;document.body.appendChild(btn);
+function openPanel(){
+if(document.getElementById('lp-sh-overlay'))return;
+var ov=document.createElement('div');ov.id='lp-sh-overlay';ov.innerHTML='<section id="lp-sh-panel"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><b style="font-size:18px">Storage &amp; History</b><button class="muted" id="lp-sh-close">✕</button></div><p style="color:#526078">Gumawa muna ng buong backup bago mag-export ng archive. Walang buburahin sa aktibong POS.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0"><button class="primary" id="lp-sh-backup">⬇ Full POS Backup</button><button class="muted" id="lp-sh-reload">Refresh Transactions</button></div><hr><h3 style="font-weight:800;margin:12px 0 6px">Archive Selected Transactions</h3><p style="color:#526078">Piliin ang mga lumang resibo/transaction. I-e-export ang buong record sa hiwalay na JSON archive.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="lp-sh-search" placeholder="Search order / customer" style="border:1px solid #ccc;border-radius:8px;padding:9px;flex:1;min-width:150px"><button class="muted" id="lp-sh-all">Select all</button><button class="muted" id="lp-sh-none">Clear</button></div><div id="lp-sh-list"></div><button class="primary" id="lp-sh-archive">Backup then Export Selected</button><hr style="margin:16px 0"><h3 style="font-weight:800;margin-bottom:6px">View an Existing Archive</h3><input id="lp-sh-file" type="file" accept=".json,application/json"><div id="lp-sh-view" style="margin-top:8px;color:#526078"></div><p style="font-size:11px;color:#667085;margin-top:14px">Safety mode: export-only. Hindi nito binubura o inililipat ang active transactions.</p></section>';
+document.body.appendChild(ov);
+var selected=new Set(),list=ov.querySelector('#lp-sh-list'),search=ov.querySelector('#lp-sh-search');
+function label(o){return [o.orderNo,o.customerName,o.customer,o.name,o.id].filter(Boolean).join(' ')}
+function render(){var orders=readOrders(),q=search.value.toLowerCase();list.innerHTML='';orders.slice().reverse().filter(function(o){return label(o).toLowerCase().indexOf(q)>=0}).forEach(function(o){var id=String(o.id||o.orderNo||'');var row=document.createElement('label'),cb=document.createElement('input');cb.type='checkbox';cb.checked=selected.has(id);cb.onchange=function(){if(cb.checked)selected.add(id);else selected.delete(id)};var d=document.createElement('span');d.innerHTML='<b>'+esc(o.orderNo||id||'Transaction')+'</b><br>'+esc(o.customerName||o.customer||'Customer not specified')+' · ₱'+esc(Number(o.total||0).toFixed(2))+'<br><small>'+esc(o.date||o.createdAt||'')+'</small>';row.appendChild(cb);row.appendChild(d);list.appendChild(row)});if(!list.children.length)list.textContent='Walang matching transactions.'}
+ov.querySelector('#lp-sh-close').onclick=function(){ov.remove()};
+ov.querySelector('#lp-sh-backup').onclick=backup;
+ov.querySelector('#lp-sh-reload').onclick=render;
+search.oninput=render;
+ov.querySelector('#lp-sh-all').onclick=function(){readOrders().forEach(function(o){selected.add(String(o.id||o.orderNo||''))});render()};
+ov.querySelector('#lp-sh-none').onclick=function(){selected.clear();render()};
+ov.querySelector('#lp-sh-archive').onclick=function(){var orders=readOrders().filter(function(o){return selected.has(String(o.id||o.orderNo||''))});if(!orders.length){alert('Pumili muna ng transaction.');return}if(!confirm('Gagawa muna ng buong POS backup, pagkatapos ay ie-export ang '+orders.length+' selected transaction. Walang buburahin. Ituloy?'))return;if(!backup())return;var archive={app:'La Princesa AquaSpin POS',type:'transaction-archive',version:1,createdAt:new Date().toISOString(),count:orders.length,transactions:orders};download('LaPrincesa_ARCHIVE_'+stamp()+'.json',archive);alert('Na-export ang '+orders.length+' transaction. Nananatili ang lahat ng record sa active POS.')};
+ov.querySelector('#lp-sh-file').onchange=function(ev){var f=ev.target.files&&ev.target.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var a=JSON.parse(rd.result);if(a.app!=='La Princesa AquaSpin POS'||a.type!=='transaction-archive'||!Array.isArray(a.transactions))throw Error('Hindi valid na La Princesa transaction archive.');ov.querySelector('#lp-sh-view').textContent='Valid archive · '+a.transactions.length+' transactions · '+(a.createdAt||'');}catch(e){ov.querySelector('#lp-sh-view').textContent='Hindi mabasa: '+e.message}};rd.readAsText(f)};
+render();
+}
+})();
+</script>
 </body>
 </html>
