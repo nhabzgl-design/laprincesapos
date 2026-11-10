@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, fix-main-apk-workflow ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, fix/calendar-on-223-preserve-print ]
   workflow_dispatch:
 
 permissions:
