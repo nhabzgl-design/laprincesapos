@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, fix-main-apk-workflow, stable/apk-235-baseline ]
   pull_request:
-    branches: [ main, fix/calendar-on-223-preserve-print ]
+    branches: [main, fix/calendar-on-223-preserve-print, stable/apk-235-baseline]
   workflow_dispatch:
 
 permissions:
