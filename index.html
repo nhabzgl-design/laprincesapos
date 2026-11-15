@@ -3543,18 +3543,51 @@ L.hydrate=function(){
  return L.load().then(function(m){
   var F=m.F;
   return F.getDocs(F.collection(db,'data')).then(function(snap){
-   var main={},parts={};
+   var main={},parts={},remote={};
    snap.forEach(function(d){var id=d.id,i=id.indexOf('~p');if(i<0)main[id]=d.data();else{var k=id.slice(0,i);(parts[k]=parts[k]||{})[+id.slice(i+2)]=d.data().s}});
-   var ids=Object.keys(main),changed=false,bk={};
+   var ids=Object.keys(main),changed=false,bk={},dk=P+'deleted_orders_v1',ok=P+'orders_v2';
    ids.forEach(function(k){
     var d=main[k],v;
     if(d.parts>0){v='';for(var i=0;i<d.parts;i++){var s=(parts[k]||{})[i];if(typeof s!=='string'){v=null;break}v+=s}}else v=d.v;
-    if(typeof v!=='string')return;
+    if(typeof v==='string')remote[k]=v;
+   });
+   function arr(raw){try{var x=JSON.parse(raw||'[]');return Array.isArray(x)?x:[]}catch(e){return[]}}
+   var localDeleted=arr(localStorage.getItem(dk)),cloudDeleted=arr(remote[dk]),mergedDeleted=[],seenDeleted={};
+   localDeleted.concat(cloudDeleted).forEach(function(x){
+    if(!x||x.id==null){mergedDeleted.push(x);return}
+    var id=String(x.id);
+    if(!seenDeleted[id]){seenDeleted[id]=1;mergedDeleted.push(x)}
+    else{
+     var at=mergedDeleted.findIndex(function(y){return y&&y.id!=null&&String(y.id)===id});
+     if(at>=0&&new Date(x.deletedAt||0).getTime()>new Date(mergedDeleted[at].deletedAt||0).getTime())mergedDeleted[at]=x;
+    }
+   });
+   var mergedDeletedRaw=JSON.stringify(mergedDeleted),cloudDeletedRaw=remote[dk]||null;
+   var deletionArchiveChanged=mergedDeletedRaw!==JSON.stringify(cloudDeleted);
+   if(localDeleted.length||cloudDeleted.length)remote[dk]=mergedDeletedRaw;
+   var activeOrderRaw=remote[ok]||null,filteredOrderRaw=activeOrderRaw;
+   if(activeOrderRaw!==null){
+    var activeOrders=arr(activeOrderRaw),deletedIds=Object.create(null);
+    mergedDeleted.forEach(function(x){if(x&&x.id!=null)deletedIds[String(x.id)]=1});
+    var filtered=activeOrders.filter(function(x){return x&&!x.deletedAt&&!deletedIds[String(x.id)]});
+    filteredOrderRaw=JSON.stringify(filtered);
+    remote[ok]=filteredOrderRaw;
+   }
+   ids.forEach(function(k){
+    var v=remote[k];if(typeof v!=='string')return;
     last[k]=v;
     var cur=localStorage.getItem(k);
     if(cur!==v){if(cur!=null)bk[k]=cur;origSet.call(localStorage,k,v);changed=true}
    });
    if(Object.keys(bk).length){try{origSet.call(localStorage,'lpmeta_local_backup',JSON.stringify({at:new Date().toISOString(),data:bk}))}catch(e){}}
+   if(deletionArchiveChanged){
+    if(cloudDeletedRaw===null)delete last[dk];else last[dk]=cloudDeletedRaw;
+    dirty[dk]=1;
+   }
+   if(activeOrderRaw!==null&&filteredOrderRaw!==activeOrderRaw){
+    last[ok]=activeOrderRaw;
+    dirty[ok]=1;
+   }
    keys().forEach(function(k){if(!(k in main))dirty[k]=1});
    ready=true;flush();status();
    return{changed:changed,migrated:!ids.length};
