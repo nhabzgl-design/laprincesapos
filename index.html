@@ -3888,9 +3888,24 @@ function staffPanel(s){
    var data={date:day,timezone:'Asia/Manila',staffAccount:String(s.u||''),orders:orders,expenses:expenses};
    var raw=JSON.stringify(data),h=5381;for(var i=0;i<raw.length;i++)h=((h<<5)+h+raw.charCodeAt(i))|0;
    var backup={app:'La Princesa AquaSpin POS',backupType:'staff_daily_transactions',backupVersion:1,exportedAt:now.toISOString(),date:day,timezone:'Asia/Manila',staffAccount:String(s.u||''),counts:{orders:orders.length,expenses:expenses.length},checksum:String(h),data:data};
-   var blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-   a.href=url;a.download='LaPrincesa_Daily_Transactions_'+day+'.json';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},1500);
-   toast('Daily backup na-export: '+orders.length+' orders, '+expenses.length+' expenses.');
+   var filename='LaPrincesa_Daily_Transactions_'+day+'.json',json=JSON.stringify(backup,null,2);
+   if(window.NativeBackup&&typeof window.NativeBackup.saveJson==='function'){
+    window.__lpBackupSaveResult=function(ok){
+     dailyBtn.disabled=false;dailyBtn.textContent='⬇️ Daily Transaction Backup';
+     toast(ok?'Matagumpay na na-save ang backup file.':'Hindi na-save ang backup. Subukan muli at pumili ng lokasyon.');
+     window.__lpBackupSaveResult=null;
+    };
+    dailyBtn.disabled=true;dailyBtn.textContent='Sine-save ang backup...';
+    if(!window.NativeBackup.saveJson(filename,json)){
+     dailyBtn.disabled=false;dailyBtn.textContent='⬇️ Daily Transaction Backup';
+     window.__lpBackupSaveResult=null;toast('Hindi masimulan ang pag-save ng backup.');
+    }
+   }else{
+    var blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+    setTimeout(function(){a.remove();URL.revokeObjectURL(url)},1500);
+    toast('Sinimulan ang pag-download ng daily backup.');
+   }
   }catch(e){toast('Hindi nagawa ang backup: '+(e&&e.message?e.message:'May error sa records.'))}
  };
  var mode=$('#lp-staff-mode',o);mode.value=window.BTP?window.BTP.status().mode:'auto';mode.onchange=function(){if(window.BTP)window.BTP.setMode(this.value)};
