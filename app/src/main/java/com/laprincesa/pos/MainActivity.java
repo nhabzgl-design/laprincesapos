@@ -149,6 +149,21 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
+            public boolean onJsConfirm(WebView view, String url, String message, JsResult result) {
+                // Android WebView does not display JavaScript confirm() automatically.
+                // Handle it explicitly so guarded actions such as audited order deletion
+                // can receive the user's confirmation inside the native APK.
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Kumpirmahin")
+                    .setMessage(message)
+                    .setPositiveButton("Confirm", (d, which) -> result.confirm())
+                    .setNegativeButton("Cancel", (d, which) -> result.cancel())
+                    .setOnCancelListener(d -> result.cancel())
+                    .show();
+                return true;
+            }
+
+            @Override
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePathCallback,
                                              FileChooserParams fileChooserParams) {
                 if (backupFilePathCallback != null) backupFilePathCallback.onReceiveValue(null);
