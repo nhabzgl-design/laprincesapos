@@ -3566,12 +3566,20 @@ L.hydrate=function(){
    var deletionArchiveChanged=mergedDeletedRaw!==JSON.stringify(cloudDeleted);
    if(localDeleted.length||cloudDeleted.length)remote[dk]=mergedDeletedRaw;
    var activeOrderRaw=remote[ok]||null,filteredOrderRaw=activeOrderRaw;
+   var deletedIds=Object.create(null);
+   mergedDeleted.forEach(function(x){if(x&&x.id!=null)deletedIds[String(x.id)]=1});
    if(activeOrderRaw!==null){
-    var activeOrders=arr(activeOrderRaw),deletedIds=Object.create(null);
-    mergedDeleted.forEach(function(x){if(x&&x.id!=null)deletedIds[String(x.id)]=1});
+    var activeOrders=arr(activeOrderRaw);
     var filtered=activeOrders.filter(function(x){return x&&!x.deletedAt&&!deletedIds[String(x.id)]});
     filteredOrderRaw=JSON.stringify(filtered);
     remote[ok]=filteredOrderRaw;
+   }else{
+    var localOrderRaw=localStorage.getItem(ok);
+    if(localOrderRaw!==null){
+     var localOrders=arr(localOrderRaw);
+     var localFiltered=JSON.stringify(localOrders.filter(function(x){return x&&!x.deletedAt&&!deletedIds[String(x.id)]}));
+     if(localFiltered!==localOrderRaw){bk[ok]=localOrderRaw;origSet.call(localStorage,ok,localFiltered);changed=true}
+    }
    }
    ids.forEach(function(k){
     var v=remote[k];if(typeof v!=='string')return;
