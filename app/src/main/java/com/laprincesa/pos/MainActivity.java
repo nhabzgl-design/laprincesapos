@@ -49,6 +49,8 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> backupFilePathCallback;
     private String pendingBackupBase64 = null;
     private String pendingBackupName = "LaPrincesa_backup.json";
+    private static final int STAFF_BACKUP_CREATE_REQUEST = 73;
+    private String pendingStaffBackupJson = null;
     private static final int BACKUP_IMPORT_REQUEST = 52;
     private static final int BACKUP_EXPORT_REQUEST = 53;
     private OutputStream out;
@@ -229,6 +231,24 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == STAFF_BACKUP_CREATE_REQUEST) {
+            String json = pendingStaffBackupJson;
+            pendingStaffBackupJson = null;
+            if (resultCode != RESULT_OK || data == null || data.getData() == null || json == null) {
+                notifyStaffBackupSaved(false);
+                return;
+            }
+            try (OutputStream stream = getContentResolver().openOutputStream(data.getData(), "w")) {
+                if (stream == null) throw new IllegalStateException("Hindi mabuksan ang napiling lokasyon.");
+                stream.write(json.getBytes(StandardCharsets.UTF_8));
+                stream.flush();
+                notifyStaffBackupSaved(true);
+            } catch (Exception e) {
+                notifyStaffBackupSaved(false);
+                Toast.makeText(this, "Hindi na-save ang backup file.", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
         if (requestCode == BACKUP_IMPORT_REQUEST) {
             if (backupFilePathCallback != null) {
                 Uri[] result = (resultCode == RESULT_OK && data != null && data.getData() != null)
@@ -280,6 +300,38 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
         }
+
+        @JavascriptInterface
+        public boolean saveJson(String filename, String json) {
+            if (filename == null || json == null || json.isEmpty()) return false;
+            if (pendingStaffBackupJson != null) return false;
+            runOnUiThread(() -> {
+                if (pendingStaffBackupJson != null) {
+                    notifyStaffBackupSaved(false);
+                    return;
+                }
+                pendingStaffBackupJson = json;
+                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/json");
+                intent.putExtra(Intent.EXTRA_TITLE, filename);
+                try {
+                    startActivityForResult(intent, STAFF_BACKUP_CREATE_REQUEST);
+                } catch (Exception e) {
+                    pendingStaffBackupJson = null;
+                    notifyStaffBackupSaved(false);
+                }
+            });
+            return true;
+        }
+    }
+
+    private void notifyStaffBackupSaved(boolean success) {
+        if (web == null) return;
+        runOnUiThread(() -> web.evaluateJavascript(
+            "if(window.__lpBackupSaveResult){window.__lpBackupSaveResult(" + (success ? "true" : "false") + ");}",
+            null
+        ));
     }
 
     @Override
