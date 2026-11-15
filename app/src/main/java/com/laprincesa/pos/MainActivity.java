@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private ValueCallback<Uri[]> backupFilePathCallback;
     private String pendingBackupBase64 = null;
     private String pendingBackupName = "LaPrincesa_backup.json";
+    // Separate request code keeps the existing owner backup import/export flow intact.
     private static final int STAFF_BACKUP_CREATE_REQUEST = 73;
     private String pendingStaffBackupJson = null;
     private static final int BACKUP_IMPORT_REQUEST = 52;
