@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, fix-main-apk-workflow, stable/apk-235-baseline ]
   pull_request:
-    branches: [main, fix/calendar-on-223-preserve-print, stable/apk-235-baseline]
+    branches: [main, fix/calendar-on-223-preserve-print, stable/apk-235-baseline, build/ewallet-pr21-trigger]
   workflow_dispatch:
 
 permissions:
