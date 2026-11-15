@@ -17,6 +17,9 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.pm.PackageManager;
+import android.content.Intent;
+import android.net.Uri;
+import java.io.IOException;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Base64;
@@ -45,6 +48,8 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothSocket socket;
     private OutputStream out;
     private static final int PERMISSION_REQUEST = 41;
+    private static final int STAFF_BACKUP_CREATE_REQUEST = 73;
+    private String pendingStaffBackupJson = null;
     private static final UUID SPP = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
     private String lastMac = "";
     // Serialize all printer writes so receipt jobs and test/drawer commands cannot overlap.
@@ -139,12 +144,43 @@ public class MainActivity extends AppCompatActivity {
         });
         web.setWebViewClient(new WebViewClient());
         web.addJavascriptInterface(new NativePrinter(), "NativePrinter");
+        web.addJavascriptInterface(new NativeBackup(), "NativeBackup");
 
         // Load the POS bundled inside this APK. This avoids dependence on GitHub Pages,
         // network availability, redirects, and remote WebView startup failures.
         web.loadUrl("file:///android_asset/index.html");
 
         requestBluetoothPermissionsIfNeeded();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != STAFF_BACKUP_CREATE_REQUEST) return;
+
+        String json = pendingStaffBackupJson;
+        pendingStaffBackupJson = null;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null || json == null) {
+            notifyStaffBackupSaved(false);
+            return;
+        }
+        try (OutputStream stream = getContentResolver().openOutputStream(data.getData(), "w")) {
+            if (stream == null) throw new IOException("Hindi mabuksan ang napiling lokasyon.");
+            stream.write(json.getBytes(StandardCharsets.UTF_8));
+            stream.flush();
+            notifyStaffBackupSaved(true);
+        } catch (Exception e) {
+            notifyStaffBackupSaved(false);
+            Toast.makeText(this, "Hindi na-save ang backup file.", Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void notifyStaffBackupSaved(boolean success) {
+        if (web == null) return;
+        runOnUiThread(() -> web.evaluateJavascript(
+            "if(window.__lpBackupSaveResult){window.__lpBackupSaveResult(" + (success ? "true" : "false") + ");}",
+            null
+        ));
     }
 
     private void requestBluetoothPermissionsIfNeeded() {
@@ -194,6 +230,32 @@ public class MainActivity extends AppCompatActivity {
         try { if (socket != null) socket.close(); } catch (Exception ignored) {}
         out = null;
         socket = null;
+    }
+
+    public class NativeBackup {
+        @JavascriptInterface
+        public boolean saveJson(String filename, String json) {
+            if (filename == null || json == null || json.isEmpty()) return false;
+            if (pendingStaffBackupJson != null) return false;
+            runOnUiThread(() -> {
+                if (pendingStaffBackupJson != null) {
+                    notifyStaffBackupSaved(false);
+                    return;
+                }
+                pendingStaffBackupJson = json;
+                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/json");
+                intent.putExtra(Intent.EXTRA_TITLE, filename);
+                try {
+                    startActivityForResult(intent, STAFF_BACKUP_CREATE_REQUEST);
+                } catch (Exception e) {
+                    pendingStaffBackupJson = null;
+                    notifyStaffBackupSaved(false);
+                }
+            });
+            return true;
+        }
     }
 
     public class NativePrinter {
