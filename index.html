@@ -3874,7 +3874,25 @@ function syncNow(){
 function overlay(html){var o=document.createElement('div');o.id='lp-acc-ov';o.innerHTML='<div id="lp-acc">'+html+'</div>';document.body.appendChild(o);o.addEventListener('click',function(e){if(e.target===o)o.remove()});return o}
 function toast(t){var d=document.createElement('div');d.textContent=t;d.style.cssText='position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:300000;background:#111;color:#fff;padding:10px 14px;border-radius:12px;font:600 13px system-ui;max-width:90%';document.body.appendChild(d);setTimeout(function(){d.remove()},3000)}
 function staffPanel(s){
- var o=overlay('<h3>Settings</h3><p style="font-size:14px;color:#cfcfe8;margin:0 0 8px">Naka-login bilang <b>'+esc(s.u)+'</b> (Staff). Owner-only ang account at backup settings.</p><label style="display:block;font-size:12px;margin:10px 0 5px">🖨️ Printer Mode</label><select id="lp-staff-mode" style="width:100%;padding:10px;border-radius:9px;background:#2A2A4A;color:#fff;border:1px solid #555"><option value="auto">Auto</option><option value="web-bluetooth">Web Bluetooth</option><option value="rawbt">RawBT (Classic Bluetooth / POS58)</option></select><button id="lp-staff-test" class="sb">🧾 Test Print</button><button id="lp-staff-diag" class="sb">🔍 Printer Diagnostics</button>'+(cloud?'<button id="lp-sy">Mag-sync ngayon</button>':'')+'<button id="lp-lo" class="rd">Mag-logout</button><button id="lp-x">Isara</button>');
+ var o=overlay('<h3>Settings</h3><p style="font-size:14px;color:#cfcfe8;margin:0 0 8px">Naka-login bilang <b>'+esc(s.u)+'</b> (Staff). Owner-only ang account at full backup settings.</p><button id="lp-staff-daily-backup" class="sb">⬇️ Daily Transaction Backup</button><small style="display:block;color:#cfcfe8;margin:0 0 8px">I-e-export ang transactions at expenses ngayong araw.</small><label style="display:block;font-size:12px;margin:10px 0 5px">🖨️ Printer Mode</label><select id="lp-staff-mode" style="width:100%;padding:10px;border-radius:9px;background:#2A2A4A;color:#fff;border:1px solid #555"><option value="auto">Auto</option><option value="web-bluetooth">Web Bluetooth</option><option value="rawbt">RawBT (Classic Bluetooth / POS58)</option></select><button id="lp-staff-test" class="sb">🧾 Test Print</button><button id="lp-staff-diag" class="sb">🔍 Printer Diagnostics</button>'+(cloud?'<button id="lp-sy">Mag-sync ngayon</button>':'')+'<button id="lp-lo" class="rd">Mag-logout</button><button id="lp-x">Isara</button>');
+ var dailyBtn=$('#lp-staff-daily-backup',o);
+ dailyBtn.onclick=function(){
+  try{
+   var now=new Date(),parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now),today={};
+   parts.forEach(function(p){if(p.type!=='literal')today[p.type]=p.value});
+   var day=today.year+'-'+today.month+'-'+today.day;
+   function onDay(x){if(!x||!x.date)return false;var d=new Date(x.date);if(!isFinite(d.getTime()))return false;var p=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d),v={};p.forEach(function(q){if(q.type!=='literal')v[q.type]=q.value});return v.year+'-'+v.month+'-'+v.day===day}
+   var orders=JSON.parse(localStorage.getItem('laPrincesa_orders_v2')||'[]'),expenses=JSON.parse(localStorage.getItem('laPrincesa_expenses_v2')||'[]');
+   if(!Array.isArray(orders)||!Array.isArray(expenses))throw new Error('Hindi mabasa ang transaction records.');
+   orders=orders.filter(onDay);expenses=expenses.filter(onDay);
+   var data={date:day,timezone:'Asia/Manila',staffAccount:String(s.u||''),orders:orders,expenses:expenses};
+   var raw=JSON.stringify(data),h=5381;for(var i=0;i<raw.length;i++)h=((h<<5)+h+raw.charCodeAt(i))|0;
+   var backup={app:'La Princesa AquaSpin POS',backupType:'staff_daily_transactions',backupVersion:1,exportedAt:now.toISOString(),date:day,timezone:'Asia/Manila',staffAccount:String(s.u||''),counts:{orders:orders.length,expenses:expenses.length},checksum:String(h),data:data};
+   var blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+   a.href=url;a.download='LaPrincesa_Daily_Transactions_'+day+'.json';document.body.appendChild(a);a.click();setTimeout(function(){a.remove();URL.revokeObjectURL(url)},1500);
+   toast('Daily backup na-export: '+orders.length+' orders, '+expenses.length+' expenses.');
+  }catch(e){toast('Hindi nagawa ang backup: '+(e&&e.message?e.message:'May error sa records.'))}
+ };
  var mode=$('#lp-staff-mode',o);mode.value=window.BTP?window.BTP.status().mode:'auto';mode.onchange=function(){if(window.BTP)window.BTP.setMode(this.value)};
  $('#lp-staff-test',o).onclick=function(){if(window.BTP)Promise.resolve(window.BTP.testPrint()).then(function(ok){toast(ok?'Test print sent.':'Hindi naipadala ang test print.')})};
  $('#lp-staff-diag',o).onclick=function(){var st=window.BTP?window.BTP.status():{},dev=(st.paired||[]).map(function(x){return(x.name||'Bluetooth Printer')+' — '+x.mac}).join('\n')||'Walang paired device na nabasa.';alert('Printer Diagnostics\nMode: '+(st.mode||'Auto')+'\nNative Android: '+(st.native?'Available':'Not available')+'\nWeb Bluetooth: '+(st.webBluetooth?'Available':'Not available')+'\nPaired printers:\n'+dev)};
