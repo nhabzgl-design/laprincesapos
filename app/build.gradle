@@ -4,11 +4,12 @@ android {
   namespace 'com.laprincesa.pos'
   compileSdk 34
   defaultConfig {
-    applicationId 'com.laprincesa.pos'
+    // Separate package ID lets the test app install beside the live POS.
+    applicationId 'com.laprincesa.pos.test'
     minSdk 24
     targetSdk 34
-    versionCode 4
-    versionName '1.3'
+    versionCode 1
+    versionName '1.3-test'
   }
   compileOptions {
     sourceCompatibility JavaVersion.VERSION_17
