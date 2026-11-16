@@ -3918,6 +3918,44 @@ function startCloud(){
  viewLoading('Sandali lang...');
  LPCloud.ready().then(function(user){if(!user){viewLogin();return}return enter(user)}).catch(function(e){viewCloudError(e)});
 }
+function localAccounts(s){
+ if(!s||s.role!=='owner'){toast('Owner account lang ang puwedeng mag-manage ng staff.');return}
+ var o=overlay('<h3>Mga Account</h3><div id="lp-local-ul"><div class="u"><span>Loading...</span></div></div>'+
+  '<h4>Magdagdag ng Staff</h4><input id="lp-local-nu" type="text" placeholder="Username ng staff" autocapitalize="none"><input id="lp-local-np" type="password" placeholder="Password (6+ character)"><button id="lp-local-add" class="pk">Idagdag ang staff</button><button id="lp-local-x">Isara</button>');
+ $('#lp-local-x',o).onclick=function(){o.remove()};
+ function render(){
+  var a=load();
+  if(!a||!Array.isArray(a.users)){ $('#lp-local-ul',o).innerHTML='<div class="u"><span>Hindi mabasa ang local accounts.</span></div>';return}
+  $('#lp-local-ul',o).innerHTML=a.users.map(function(u){
+   return '<div class="u"><span>'+esc(u.u)+' <small>'+(u.role==='owner'?'Owner':'Staff')+'</small></span>'+(u.role==='staff'?'<button class="sm rd" data-local-del="'+esc(u.u)+'">Burahin</button>':'')+'</div>';
+  }).join('');
+  [].forEach.call(o.querySelectorAll('[data-local-del]'),function(b){
+   b.onclick=function(){
+    var username=b.getAttribute('data-local-del');
+    if(!confirm('Alisin ang staff account na '+username+'?'))return;
+    var latest=load();if(!latest||!Array.isArray(latest.users))return;
+    latest.users=latest.users.filter(function(u){return !(u.role==='staff'&&u.u.toLowerCase()===username.toLowerCase())});
+    save(latest);toast('Naalis na ang staff account.');render();
+   };
+  });
+ }
+ render();
+ $('#lp-local-add',o).onclick=function(){
+  var u=$('#lp-local-nu',o).value.trim().toLowerCase(),p=$('#lp-local-np',o).value,b=this;
+  if(!/^[a-z0-9._-]{3,30}$/.test(u))return toast('Username: 3 hanggang 30 na letra, numero, tuldok, dash o underscore lang.');
+  if(p.length<6)return toast('Ang password ay dapat 6 character o higit pa.');
+  var a=load();if(!a||!Array.isArray(a.users))return toast('Hindi mabasa ang local accounts.');
+  if(find(a,u))return toast('May existing account na sa username na ito.');
+  b.disabled=true;
+  mk(u,'staff',p).then(function(user){
+   var latest=load();if(!latest||!Array.isArray(latest.users))throw new Error('Hindi mabasa ang local accounts.');
+   if(find(latest,u))throw new Error('May existing account na sa username na ito.');
+   latest.users.push(user);save(latest);
+   $('#lp-local-nu',o).value='';$('#lp-local-np',o).value='';
+   toast('Naidagdag si '+u);render();
+  }).catch(function(e){toast(e&&e.message?e.message:'Hindi naidagdag ang staff account.')}).then(function(){b.disabled=false});
+ };
+}
 function cloudAccounts(s){
  var o=overlay('<h3>Mga Account</h3><div id="lp-ul"><div class="u"><span>Sandali...</span></div></div>'+
   '<h4>Magdagdag ng Staff</h4><input id="lp-nu" type="text" placeholder="Username ng staff" autocapitalize="none"><input id="lp-np" type="password" placeholder="Password (6+ character)"><button id="lp-add" class="pk">Idagdag ang staff</button>'+
@@ -4009,7 +4047,7 @@ function hookSettings(){
   var bd=document.createElement('button');bd.className='sb';bd.textContent='💵 Test Drawer';bd.onclick=function(){if(window.__LP_AUTH_MANUAL_DRAWER)window.__LP_AUTH_MANUAL_DRAWER().then(function(ok){toast(ok?'Drawer command sent.':'Hindi naipadala ang drawer command.')})};
   var bx=document.createElement('button');bx.className='sb';bx.textContent='🔍 Printer Diagnostics';bx.onclick=function(){var st=window.BTP?window.BTP.status():{},devices=(st.paired||[]).map(function(x){return(x.name||'Bluetooth Printer')+' — '+x.mac}).join('\n')||'Walang paired device na nabasa.';alert('Printer Diagnostics\nMode: '+(st.mode||'Auto')+'\nNative Android: '+(st.native?'Available':'Not available')+'\nWeb Bluetooth: '+(st.webBluetooth?'Available':'Not available')+'\nWeb connection: '+(st.webConnected?'Connected':'Not connected')+'\nPaired printers:\n'+devices)};
   box.insertBefore(pwrap,b1);box.insertBefore(bt,b1);box.insertBefore(bd,b1);box.insertBefore(bx,b1);
-  var b1=document.createElement('button');b1.className='sb';b1.textContent='Mga Account at password';b1.onclick=function(){var o=$('#set-ov');if(o)o.remove();if(cloud)cloudAccounts(s);else accounts(s)};
+  var b1=document.createElement('button');b1.className='sb';b1.textContent='Mga Account at password';b1.onclick=function(){var o=$('#set-ov');if(o)o.remove();if(cloud)cloudAccounts(s);else localAccounts(s)};
   var b2=document.createElement('button');b2.className='sb red';b2.textContent='Mag-logout ('+s.u+')';b2.onclick=logout;
   if(cloud){var b3=document.createElement('button');b3.className='sb';b3.textContent='Mag-sync ngayon';b3.onclick=function(){var o=$('#set-ov');if(o)o.remove();syncNow()};box.insertBefore(b3,x)}
   box.insertBefore(b1,x);box.insertBefore(b2,x);
