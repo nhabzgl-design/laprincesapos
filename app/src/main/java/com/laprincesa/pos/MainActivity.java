@@ -17,6 +17,8 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothSocket;
 import android.content.pm.PackageManager;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Base64;
@@ -27,6 +29,7 @@ import android.app.AlertDialog;
 import android.text.InputType;
 import android.widget.EditText;
 import android.webkit.WebChromeClient;
+import android.webkit.ValueCallback;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -43,6 +46,14 @@ import java.util.UUID;
 public class MainActivity extends AppCompatActivity {
     private WebView web;
     private BluetoothSocket socket;
+    private ValueCallback<Uri[]> backupFilePathCallback;
+    private String pendingBackupBase64 = null;
+    private String pendingBackupName = "LaPrincesa_backup.json";
+    // Separate request code keeps the existing owner backup import/export flow intact.
+    private static final int STAFF_BACKUP_CREATE_REQUEST = 73;
+    private String pendingStaffBackupJson = null;
+    private static final int BACKUP_IMPORT_REQUEST = 52;
+    private static final int BACKUP_EXPORT_REQUEST = 53;
     private OutputStream out;
     private static final int PERMISSION_REQUEST = 41;
     private static final UUID SPP = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
@@ -136,9 +147,73 @@ public class MainActivity extends AppCompatActivity {
                     .show();
                 return true;
             }
+
+            @Override
+            public boolean onJsConfirm(WebView view, String url, String message, JsResult result) {
+                // Android WebView does not display JavaScript confirm() automatically.
+                // Handle it explicitly so guarded actions such as audited order deletion
+                // can receive the user's confirmation inside the native APK.
+                new AlertDialog.Builder(MainActivity.this)
+                    .setTitle("Kumpirmahin")
+                    .setMessage(message)
+                    .setPositiveButton("Confirm", (d, which) -> result.confirm())
+                    .setNegativeButton("Cancel", (d, which) -> result.cancel())
+                    .setOnCancelListener(d -> result.cancel())
+                    .show();
+                return true;
+            }
+
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePathCallback,
+                                             FileChooserParams fileChooserParams) {
+                if (backupFilePathCallback != null) backupFilePathCallback.onReceiveValue(null);
+                backupFilePathCallback = filePathCallback;
+                try {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                    intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+                        "application/json", "text/json", "application/octet-stream"
+                    });
+                    startActivityForResult(intent, BACKUP_IMPORT_REQUEST);
+                    return true;
+                } catch (Exception e) {
+                    backupFilePathCallback = null;
+                    filePathCallback.onReceiveValue(null);
+                    Toast.makeText(MainActivity.this, "Hindi mabuksan ang file picker.", Toast.LENGTH_LONG).show();
+                    return false;
+                }
+            }
         });
-        web.setWebViewClient(new WebViewClient());
+        web.setWebViewClient(new WebViewClient() {
+            private boolean openFacebookLink(String url) {
+                if (url == null) return false;
+                Uri uri = Uri.parse(url);
+                String host = uri.getHost();
+                if (host == null || !(host.equalsIgnoreCase("facebook.com") || host.endsWith(".facebook.com"))) {
+                    return false;
+                }
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+                    startActivity(intent);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, android.webkit.WebResourceRequest request) {
+                return openFacebookLink(request.getUrl().toString());
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return openFacebookLink(url);
+            }
+        });
         web.addJavascriptInterface(new NativePrinter(), "NativePrinter");
+        web.addJavascriptInterface(new NativeBackup(), "NativeBackup");
 
         // Load the POS bundled inside this APK. This avoids dependence on GitHub Pages,
         // network availability, redirects, and remote WebView startup failures.
@@ -167,6 +242,112 @@ public class MainActivity extends AppCompatActivity {
                 ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[] { Manifest.permission.ACCESS_FINE_LOCATION }, PERMISSION_REQUEST);
         }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == STAFF_BACKUP_CREATE_REQUEST) {
+            String json = pendingStaffBackupJson;
+            pendingStaffBackupJson = null;
+            if (resultCode != RESULT_OK || data == null || data.getData() == null || json == null) {
+                notifyStaffBackupSaved(false);
+                return;
+            }
+            try (OutputStream stream = getContentResolver().openOutputStream(data.getData(), "w")) {
+                if (stream == null) throw new IllegalStateException("Hindi mabuksan ang napiling lokasyon.");
+                stream.write(json.getBytes(StandardCharsets.UTF_8));
+                stream.flush();
+                notifyStaffBackupSaved(true);
+            } catch (Exception e) {
+                notifyStaffBackupSaved(false);
+                Toast.makeText(this, "Hindi na-save ang backup file.", Toast.LENGTH_LONG).show();
+            }
+            return;
+        }
+        if (requestCode == BACKUP_IMPORT_REQUEST) {
+            if (backupFilePathCallback != null) {
+                Uri[] result = (resultCode == RESULT_OK && data != null && data.getData() != null)
+                    ? new Uri[] { data.getData() } : null;
+                backupFilePathCallback.onReceiveValue(result);
+                backupFilePathCallback = null;
+            }
+            return;
+        }
+        if (requestCode == BACKUP_EXPORT_REQUEST) {
+            Uri uri = (resultCode == RESULT_OK && data != null) ? data.getData() : null;
+            String encoded = pendingBackupBase64;
+            pendingBackupBase64 = null;
+            if (uri == null || encoded == null) {
+                Toast.makeText(this, "Kinansela ang pag-save ng backup.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            try (OutputStream stream = getContentResolver().openOutputStream(uri)) {
+                if (stream == null) throw new IllegalStateException("Hindi mabuksan ang napiling lokasyon.");
+                stream.write(Base64.decode(encoded, Base64.DEFAULT));
+                stream.flush();
+                Toast.makeText(this, "Matagumpay na na-save ang backup file.", Toast.LENGTH_LONG).show();
+            } catch (Exception e) {
+                Toast.makeText(this, "Hindi na-save ang backup: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private class NativeBackup {
+        @JavascriptInterface
+        public void saveBackup(String base64Data, String fileName) {
+            if (base64Data == null || base64Data.isEmpty()) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Walang laman ang backup.", Toast.LENGTH_SHORT).show());
+                return;
+            }
+            runOnUiThread(() -> {
+                pendingBackupBase64 = base64Data;
+                pendingBackupName = (fileName == null || fileName.trim().isEmpty())
+                    ? "LaPrincesa_backup.json" : fileName.replaceAll("[^A-Za-z0-9._-]", "_");
+                try {
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/json");
+                    intent.putExtra(Intent.EXTRA_TITLE, pendingBackupName);
+                    startActivityForResult(intent, BACKUP_EXPORT_REQUEST);
+                } catch (Exception e) {
+                    pendingBackupBase64 = null;
+                    Toast.makeText(MainActivity.this, "Hindi mabuksan ang Save dialog.", Toast.LENGTH_LONG).show();
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public boolean saveJson(String filename, String json) {
+            if (filename == null || json == null || json.isEmpty()) return false;
+            if (pendingStaffBackupJson != null) return false;
+            runOnUiThread(() -> {
+                if (pendingStaffBackupJson != null) {
+                    notifyStaffBackupSaved(false);
+                    return;
+                }
+                pendingStaffBackupJson = json;
+                Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("application/json");
+                intent.putExtra(Intent.EXTRA_TITLE, filename);
+                try {
+                    startActivityForResult(intent, STAFF_BACKUP_CREATE_REQUEST);
+                } catch (Exception e) {
+                    pendingStaffBackupJson = null;
+                    notifyStaffBackupSaved(false);
+                }
+            });
+            return true;
+        }
+    }
+
+    private void notifyStaffBackupSaved(boolean success) {
+        if (web == null) return;
+        runOnUiThread(() -> web.evaluateJavascript(
+            "if(window.__lpBackupSaveResult){window.__lpBackupSaveResult(" + (success ? "true" : "false") + ");}",
+            null
+        ));
     }
 
     @Override
@@ -274,7 +455,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @JavascriptInterface
-        public boolean printHtmlBase64(String encodedHtml) {
+        public boolean printHtmlBase64(String encodedHtml, int receiptCssWidth) {
             if (!receiptPrintInProgress.compareAndSet(false, true)) {
                 showReceiptPrintError("May kasalukuyang ini-print. Hintaying matapos bago ulitin.");
                 return false;
@@ -289,9 +470,6 @@ public class MainActivity extends AppCompatActivity {
                 return false;
             }
 
-            // Do not wait for WebView rendering here. JavaScript bridge calls can arrive
-            // on the WebView UI thread; waiting for onPageFinished on that same thread
-            // deadlocks until the caller times out.
             runOnUiThread(() -> {
                 final WebView renderer = new WebView(MainActivity.this);
                 try {
@@ -307,101 +485,77 @@ public class MainActivity extends AppCompatActivity {
                     renderer.setAlpha(1f);
                     renderer.setClickable(false);
                     renderer.setFocusable(false);
-                    if (Build.VERSION.SDK_INT >= 16) {
-                        renderer.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-                    }
+                    if (Build.VERSION.SDK_INT >= 16) renderer.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
 
                     int density = Math.round(getResources().getDisplayMetrics().density * 1000f);
-                    int widthPx = Math.max(224, Math.round(224f * density / 1000f));
-                    int maxHeightPx = Math.round(12000f * density / 1000f);
+                    int cssWidth = Math.max(180, Math.min(420, receiptCssWidth));
+                    int widthPx = Math.max(1, Math.round((float) cssWidth * density / 1000f));
+                    // Use the stable 1000 CSS-pixel measurement viewport that preserves
+                    // the receipt's original layout. bitmapToEscPos() trims the unused white
+                    // tail after the final printed pixel, so the printer still stops cleanly.
+                    int initialViewportHeightPx = Math.max(1, Math.round(1000f * density / 1000f));
                     ViewGroup decor = (ViewGroup) getWindow().getDecorView();
-                    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
-                        widthPx, maxHeightPx, Gravity.TOP | Gravity.LEFT);
+                    FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(widthPx, initialViewportHeightPx, Gravity.TOP | Gravity.LEFT);
                     params.leftMargin = -widthPx - 20;
                     decor.addView(renderer, params);
 
                     renderer.setWebViewClient(new WebViewClient() {
                         private boolean handled = false;
-
                         @Override
                         public void onPageFinished(WebView view, String url) {
                             if (handled) return;
                             handled = true;
-                            view.evaluateJavascript(
-                                "String(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight))",
-                                value -> {
-                                    byte[] data = null;
-                                    String renderFailure = null;
-                                    Bitmap raster = null;
+                            view.evaluateJavascript("String(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight))", value -> {
+                                byte[] data = null;
+                                String renderFailure = null;
+                                Bitmap raster = null;
+                                try {
+                                    String clean = value == null ? "" : value.replace("\"", "").trim();
+                                    int cssHeight = Integer.parseInt(clean);
+                                    if (cssHeight <= 0) throw new IllegalStateException("empty receipt layout; JS height=" + clean);
+                                    int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
+                                    int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
+                                    if (targetHeight > 30000) throw new IllegalStateException("Receipt is too long to render safely (" + targetHeight + " printer rows).");
+                                    view.setLayoutParams(new FrameLayout.LayoutParams(widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
+                                    view.measure(View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
+                                    view.layout(0, 0, widthPx, heightPx);
+                                    raster = Bitmap.createBitmap(384, targetHeight, Bitmap.Config.ARGB_8888);
+                                    Canvas canvas = new Canvas(raster);
+                                    canvas.drawColor(Color.WHITE);
+                                    canvas.scale(384f / widthPx, 384f / widthPx);
+                                    view.draw(canvas);
+                                    Bitmap centered = centerBitmapHorizontally(raster);
+                                    if (centered != raster) { raster.recycle(); raster = centered; }
+                                    data = bitmapToEscPos(raster);
+                                } catch (OutOfMemoryError e) {
+                                    renderFailure = "Kulang ang memory sa pag-render ng buong resibo.";
+                                } catch (Exception e) {
+                                    String detail = e.getMessage();
+                                    renderFailure = "Render error: " + e.getClass().getSimpleName() + (detail == null || detail.isEmpty() ? "" : " — " + detail);
+                                } finally {
+                                    if (raster != null && !raster.isRecycled()) raster.recycle();
                                     try {
-                                        String clean = value == null ? "" : value.replace("\"", "").trim();
-                                        int cssHeight = Integer.parseInt(clean);
-                                        if (cssHeight <= 0) throw new IllegalStateException("empty receipt layout; JS height=" + clean);
-                                        // Keep the entire receipt; the old 6000px ceiling could cut long receipts mid-content.
-                                        // The WebView itself is bounded at 12000 CSS px above.
-                                        cssHeight = Math.min(cssHeight, 11000);
-                                        int heightPx = Math.max(1, Math.round(cssHeight * density / 1000f));
-                                        view.setLayoutParams(new FrameLayout.LayoutParams(
-                                            widthPx, heightPx, Gravity.TOP | Gravity.LEFT));
-                                        view.measure(
-                                            View.MeasureSpec.makeMeasureSpec(widthPx, View.MeasureSpec.EXACTLY),
-                                            View.MeasureSpec.makeMeasureSpec(heightPx, View.MeasureSpec.EXACTLY));
-                                        view.layout(0, 0, widthPx, heightPx);
+                                        ViewGroup parent = (ViewGroup) view.getParent();
+                                        if (parent != null) parent.removeView(view);
+                                        view.stopLoading();
+                                        view.destroy();
+                                    } catch (Exception ignored) {}
+                                }
 
-                                        // Restore the earlier full-size WebView capture, then scale
-                                        // to the printer width. Keep this inside the asynchronous UI
-                                        // callback so the old CountDownLatch deadlock cannot return.
-                                        Bitmap original = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888);
+                                final byte[] printBytes = data;
+                                if (printBytes == null || printBytes.length == 0) {
+                                    receiptPrintInProgress.set(false);
+                                    finishReceiptPrint(false, renderFailure == null ? "Walang laman ang render output. Subukan muli." : renderFailure);
+                                    return;
+                                }
+                                new Thread(() -> {
+                                    boolean success = false;
+                                    String failure = "Nabigo ang pagpapadala ng resibo sa printer.";
+                                    synchronized (printerWriteLock) {
                                         try {
-                                            Canvas canvas = new Canvas(original);
-                                            canvas.drawColor(Color.WHITE);
-                                            view.draw(canvas);
-                                            int targetHeight = Math.max(1, Math.round(heightPx * 384f / widthPx));
-                                            raster = Bitmap.createScaledBitmap(original, 384, targetHeight, true);
-                                        } finally {
-                                            if (!original.isRecycled()) original.recycle();
-                                        }
-                                        // Center the printed ink within the 384-dot paper width without
-                                        // scaling the receipt or changing its font sizes and line layout.
-                                        Bitmap centered = centerBitmapHorizontally(raster);
-                                        if (centered != raster) {
-                                            raster.recycle();
-                                            raster = centered;
-                                        }
-                                        data = bitmapToEscPos(raster);
-                                    } catch (OutOfMemoryError memoryError) {
-                                        renderFailure = "Kulang ang memory (" + memoryError.getClass().getSimpleName() + ")";
-                                    } catch (Exception renderError) {
-                                        String detail = renderError.getMessage();
-                                        renderFailure = "Render error: " + renderError.getClass().getSimpleName()
-                                            + (detail == null || detail.isEmpty() ? "" : " — " + detail);
-                                    } finally {
-                                        if (raster != null && !raster.isRecycled()) raster.recycle();
-                                        try {
-                                            ViewGroup parent = (ViewGroup) view.getParent();
-                                            if (parent != null) parent.removeView(view);
-                                            view.stopLoading();
-                                            view.destroy();
-                                        } catch (Exception ignored) {}
-                                    }
-
-                                    final byte[] printBytes = data;
-                                    if (printBytes == null || printBytes.length == 0) {
-                                        receiptPrintInProgress.set(false);
-                                        showReceiptPrintError(renderFailure == null
-                                            ? "Walang laman ang render output. Subukan muli."
-                                            : renderFailure);
-                                        return;
-                                    }
-                                    new Thread(() -> {
-                                        synchronized (printerWriteLock) {
-                                            try {
-                                                if (out == null && !connect(lastMac)) {
-                                                    showReceiptPrintError("Hindi makakonekta sa printer para sa resibo.");
-                                                    return;
-                                                }
-                                                // Match the smaller, slower transfer used by the working test-print path.
-                                                // This gives low-speed Bluetooth thermal printers time to drain their buffers.
+                                            if (out == null && !connect(lastMac)) {
+                                                failure = "Hindi makakonekta sa printer para sa resibo.";
+                                            } else {
                                                 final int chunkSize = 200;
                                                 for (int offset = 0; offset < printBytes.length; offset += chunkSize) {
                                                     int length = Math.min(chunkSize, printBytes.length - offset);
@@ -409,15 +563,19 @@ public class MainActivity extends AppCompatActivity {
                                                     out.flush();
                                                     Thread.sleep(30);
                                                 }
-                                            } catch (Exception e) {
-                                                closePrinter();
-                                                showReceiptPrintError("Nabigo ang pagpapadala ng resibo sa printer.");
-                                            } finally {
-                                                receiptPrintInProgress.set(false);
+                                                out.flush();
+                                                success = true;
+                                                failure = "";
                                             }
+                                        } catch (Exception e) {
+                                            closePrinter();
+                                        } finally {
+                                            receiptPrintInProgress.set(false);
                                         }
-                                    }, "ReceiptPrintWorker").start();
-                                });
+                                    }
+                                    finishReceiptPrint(success, failure);
+                                }, "ReceiptPrintWorker").start();
+                            });
                         }
                     });
                     renderer.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
@@ -428,10 +586,21 @@ public class MainActivity extends AppCompatActivity {
                         if (parent != null) parent.removeView(renderer);
                         renderer.destroy();
                     } catch (Exception ignored) {}
-                    showReceiptPrintError("Hindi masimulan ang pag-render ng resibo.");
+                    finishReceiptPrint(false, "Hindi masimulan ang pag-render ng resibo.");
                 }
             });
             return true;
+        }
+
+        private void finishReceiptPrint(boolean success, String message) {
+            runOnUiThread(() -> {
+                if (!success && message != null && !message.isEmpty()) {
+                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
+                }
+                try {
+                    web.evaluateJavascript("if(window.__lpNativeReceiptDone){window.__lpNativeReceiptDone(" + success + ",\"" + jsonEscape(message == null ? "" : message) + "\");}", null);
+                } catch (Exception ignored) {}
+            });
         }
 
         private void showReceiptPrintError(String message) {
@@ -485,7 +654,7 @@ public class MainActivity extends AppCompatActivity {
                     int luminance = (Color.red(color) * 299
                         + Color.green(color) * 587
                         + Color.blue(color) * 114) / 1000;
-                    if (luminance < 245) {
+                    if (luminance < 180) {
                         lastInkRow = y;
                         break;
                     }
@@ -497,32 +666,36 @@ public class MainActivity extends AppCompatActivity {
             if (height > 65535) throw new IllegalStateException("receipt image is too long for ESC/POS");
 
             int widthBytes = (width + 7) / 8;
+            final int bandRows = 256;
             ByteArrayOutputStream bytes = new ByteArrayOutputStream(8 + widthBytes * height + 8);
             bytes.write(new byte[] { 0x1B, 0x40 });
-            bytes.write(new byte[] {
-                0x1D, 0x76, 0x30, 0x00,
-                (byte) (widthBytes & 0xFF), (byte) ((widthBytes >> 8) & 0xFF),
-                (byte) (height & 0xFF), (byte) ((height >> 8) & 0xFF)
-            });
-            for (int y = 0; y < height; y++) {
-                for (int xb = 0; xb < widthBytes; xb++) {
-                    int value = 0;
-                    for (int bit = 0; bit < 8; bit++) {
-                        int x = xb * 8 + bit;
-                        if (x < width) {
-                            int color = bitmap.getPixel(x, y);
-                            int luminance = (Color.red(color) * 299
-                                + Color.green(color) * 587
-                                + Color.blue(color) * 114) / 1000;
-                            if (luminance < 180) value |= (0x80 >> bit);
+            for (int top = 0; top < height; top += bandRows) {
+                int rows = Math.min(bandRows, height - top);
+                // Each band is its own valid GS v 0 raster command. This is
+                // safer for printers with small Bluetooth and image buffers.
+                bytes.write(new byte[] {
+                    0x1D, 0x76, 0x30, 0x00,
+                    (byte) (widthBytes & 0xFF), (byte) ((widthBytes >> 8) & 0xFF),
+                    (byte) (rows & 0xFF), (byte) ((rows >> 8) & 0xFF)
+                });
+                for (int y = top; y < top + rows; y++) {
+                    for (int xb = 0; xb < widthBytes; xb++) {
+                        int value = 0;
+                        for (int bit = 0; bit < 8; bit++) {
+                            int x = xb * 8 + bit;
+                            if (x < width) {
+                                int color = bitmap.getPixel(x, y);
+                                int luminance = (Color.red(color) * 299
+                                    + Color.green(color) * 587
+                                    + Color.blue(color) * 114) / 1000;
+                                if (luminance < 180) value |= (0x80 >> bit);
+                            }
                         }
+                        bytes.write(value);
                     }
-                    bytes.write(value);
                 }
             }
-            // The raster command already prints the complete receipt image.
-            // Do not append LF/feed commands: let the printer stop at the final
-            // retained white margin above instead of advancing extra paper.
+            // No extra feed command: the final band ends at the receipt's final margin.
             return bytes.toByteArray();
         }
 
