@@ -2,7 +2,7 @@ name: Build Native APK
 
 on:
   push:
-    branches: [ main, fix-main-apk-workflow, stable/apk-235-baseline ]
+    branches: [ main, fix-main-apk-workflow, stable/apk-235-baseline, test/isolated-apk-package ]
   pull_request:
     branches: [main, fix/calendar-on-223-preserve-print, stable/apk-235-baseline, build/ewallet-pr21-trigger]
   workflow_dispatch:
@@ -80,7 +80,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: LaPrincesa-Native-APK
+          name: LaPrincesa-Test-Native-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
@@ -111,7 +111,7 @@ jobs:
         if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: LaPrincesa-Release-APK
+          name: LaPrincesa-Test-Release-APK
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 14
