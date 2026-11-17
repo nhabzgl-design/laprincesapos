@@ -3533,190 +3533,129 @@ window.LP_FIREBASE={apiKey:"",authDomain:"",projectId:"",storageBucket:"",messag
 </script>
 <script id="lp-cloud">
 (function(){
+'use strict';
 var C=window.LP_FIREBASE||{};
 var L=window.LPCloud={enabled:!!(C.apiKey&&C.projectId)};
 if(!L.enabled)return;
-var B='https://www.gstatic.com/firebasejs/10.14.1/',P='laPrincesa_',CH=200000;
-var origSet=Storage.prototype.setItem,M=null,app,auth,db,ready=false,who='',pend=0,last={},dirty={},tm=null,badge=null,inflight=[];
-function keys(){var k=[];for(var i=0;i<localStorage.length;i++){var n=localStorage.key(i);if(n&&n.indexOf(P)===0)k.push(n)}return k}
-function toEmail(u){u=String(u).trim().toLowerCase();return u.indexOf('@')>0?u:u.replace(/\s+/g,'')+'@laprincesa-pos.app'}
-L.toEmail=toEmail;
+var B='https://www.gstatic.com/firebasejs/10.14.1/';
+var M=null,app,auth,db,unsubscribe=null,hydrated=false,who='';
+var P='laPrincesa_';
+var allowed=[
+ 'orders_v2','deleted_orders_v1','customers_v2','services_v2',
+ 'inventory_v2','package_recipes_v1','expenses_v2','activity_log_v1',
+ 'shift_v1','shift_cash_v1','shift_movements_v1','branches','machines'
+];
+var allowedMap=Object.create(null);
+allowed.forEach(function(k){allowedMap[P+k]=true});
+var ownerStorageSet=Storage.prototype.setItem;
+var ownerStorageRemove=Storage.prototype.removeItem;
+function toEmail(u){u=String(u||'').trim().toLowerCase();return u.indexOf('@')>0?u:u.replace(/\s+/g,'')+'@laprincesa-pos.app'}
 L.load=function(){
  if(M)return M;
- M=Promise.all([import(B+'firebase-app.js'),import(B+'firebase-auth.js'),import(B+'firebase-firestore.js')]).then(function(m){
+ M=Promise.all([
+  import(B+'firebase-app.js'),
+  import(B+'firebase-auth.js'),
+  import(B+'firebase-firestore.js')
+ ]).then(function(m){
   var A=m[0],Au=m[1],F=m[2];
-  app=A.initializeApp(C);auth=Au.getAuth(app);
-  try{db=F.initializeFirestore(app,{localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})})}catch(e){db=F.getFirestore(app)}
+  app=A.initializeApp(C);
+  auth=Au.getAuth(app);
+  db=F.getFirestore(app);
   return{A:A,Au:Au,F:F};
  });
  M.catch(function(){M=null});
  return M;
 };
-L.ready=function(){return L.load().then(function(){return auth.authStateReady?auth.authStateReady():null}).then(function(){return auth.currentUser})};
+L.ready=function(){
+ return L.load().then(function(){return auth.authStateReady?auth.authStateReady():null})
+  .then(function(){return auth.currentUser});
+};
 L.signIn=function(id,pw,remember){
  return L.load().then(function(m){
-  return m.Au.setPersistence(auth,remember?m.Au.browserLocalPersistence:m.Au.browserSessionPersistence).then(function(){return m.Au.signInWithEmailAndPassword(auth,toEmail(id),pw)});
+  return m.Au.setPersistence(auth,remember?m.Au.browserLocalPersistence:m.Au.browserSessionPersistence)
+   .then(function(){return m.Au.signInWithEmailAndPassword(auth,toEmail(id),pw)});
  }).then(function(c){return c.user});
 };
 L.role=function(user){
-  /* Server-verified authorization only. No bootstrap and no cached-role fallback. */
-  return L.load().then(function(m){
-   var F=m.F;
-   return F.getDoc(F.doc(db,'roles',user.uid)).then(function(s){
-    if(!s.exists())return null;
-    var d=s.data();
-    if(!d||d.role!=='owner')return null;
-    var r={role:'owner',username:d.username||user.email};
-    who=r.username;
-    return r;
-   });
+ return L.load().then(function(m){
+  return m.F.getDoc(m.F.doc(db,'roles',user.uid)).then(function(s){
+   if(!s.exists())return null;
+   var d=s.data();
+   if(!d||d.role!=='owner')return null;
+   who=d.username||user.email||'Owner';
+   return{role:'owner',username:who};
   });
- };
- L.hydrate=function(){
+ });
+};
+function applySnapshot(F,snap){
+ var main=Object.create(null),parts=Object.create(null),remote=Object.create(null);
+ snap.forEach(function(doc){
+  var id=doc.id,at=id.indexOf('~p');
+  if(at<0)main[id]=doc.data();
+  else{var key=id.slice(0,at);(parts[key]=parts[key]||{})[Number(id.slice(at+2))]=doc.data().s}
+ });
+ Object.keys(main).forEach(function(key){
+  if(!allowedMap[key])return;
+  var d=main[key],value;
+  if(d&&Number(d.parts)>0){
+   value='';
+   for(var i=0;i<Number(d.parts);i++){
+    var part=(parts[key]||{})[i];
+    if(typeof part!=='string'){value=null;break}
+    value+=part;
+   }
+  }else value=d&&d.v;
+  if(typeof value==='string')remote[key]=value;
+ });
+ var changed=false;
+ allowed.forEach(function(shortKey){
+  var key=P+shortKey,value=Object.prototype.hasOwnProperty.call(remote,key)?remote[key]:'[]';
+  if(localStorage.getItem(key)!==value){
+   ownerStorageSet.call(localStorage,key,value);
+   changed=true;
+  }
+ });
+ return changed;
+}
+L.hydrate=function(){
  return L.load().then(function(m){
   var F=m.F;
   return F.getDocs(F.collection(db,'data')).then(function(snap){
-   var main={},parts={},remote={};
-   snap.forEach(function(d){var id=d.id,i=id.indexOf('~p');if(i<0)main[id]=d.data();else{var k=id.slice(0,i);(parts[k]=parts[k]||{})[+id.slice(i+2)]=d.data().s}});
-   var ids=Object.keys(main),changed=false,bk={},dk=P+'deleted_orders_v1',ok=P+'orders_v2';
-   ids.forEach(function(k){
-    var d=main[k],v;
-    if(d.parts>0){v='';for(var i=0;i<d.parts;i++){var s=(parts[k]||{})[i];if(typeof s!=='string'){v=null;break}v+=s}}else v=d.v;
-    if(typeof v==='string')remote[k]=v;
-   });
-   function arr(raw){try{var x=JSON.parse(raw||'[]');return Array.isArray(x)?x:[]}catch(e){return[]}}
-   var localDeleted=arr(localStorage.getItem(dk)),cloudDeleted=arr(remote[dk]),mergedDeleted=[],seenDeleted={};
-   localDeleted.concat(cloudDeleted).forEach(function(x){
-    if(!x||x.id==null){mergedDeleted.push(x);return}
-    var id=String(x.id);
-    if(!seenDeleted[id]){seenDeleted[id]=1;mergedDeleted.push(x)}
-    else{
-     var at=mergedDeleted.findIndex(function(y){return y&&y.id!=null&&String(y.id)===id});
-     if(at>=0&&new Date(x.deletedAt||0).getTime()>new Date(mergedDeleted[at].deletedAt||0).getTime())mergedDeleted[at]=x;
-    }
-   });
-   var mergedDeletedRaw=JSON.stringify(mergedDeleted),cloudDeletedRaw=remote[dk]||null;
-   var deletionArchiveChanged=mergedDeletedRaw!==JSON.stringify(cloudDeleted);
-   if(localDeleted.length||cloudDeleted.length)remote[dk]=mergedDeletedRaw;
-   var activeOrderRaw=remote[ok]||null,filteredOrderRaw=activeOrderRaw;
-   var deletedIds=Object.create(null);
-   mergedDeleted.forEach(function(x){if(x&&x.id!=null)deletedIds[String(x.id)]=1});
-   if(activeOrderRaw!==null){
-    var activeOrders=arr(activeOrderRaw);
-    var filtered=activeOrders.filter(function(x){return x&&!x.deletedAt&&!deletedIds[String(x.id)]});
-    filteredOrderRaw=JSON.stringify(filtered);
-    remote[ok]=filteredOrderRaw;
-   }else{
-    var localOrderRaw=localStorage.getItem(ok);
-    if(localOrderRaw!==null){
-     var localOrders=arr(localOrderRaw);
-     var localFiltered=JSON.stringify(localOrders.filter(function(x){return x&&!x.deletedAt&&!deletedIds[String(x.id)]}));
-     if(localFiltered!==localOrderRaw){bk[ok]=localOrderRaw;origSet.call(localStorage,ok,localFiltered);changed=true}
-    }
+   var changed=applySnapshot(F,snap);
+   if(!unsubscribe){
+    unsubscribe=F.onSnapshot(F.collection(db,'data'),function(next){
+     var update=applySnapshot(F,next);
+     if(update&&hydrated){
+      window.dispatchEvent(new CustomEvent('lp-owner-data-updated'));
+      setTimeout(function(){location.reload()},250);
+     }
+    },function(){});
    }
-   ids.forEach(function(k){
-    var v=remote[k];if(typeof v!=='string')return;
-    last[k]=v;
-    var cur=localStorage.getItem(k);
-    if(cur!==v){if(cur!=null)bk[k]=cur;origSet.call(localStorage,k,v);changed=true}
-   });
-   if(Object.keys(bk).length){try{origSet.call(localStorage,'lpmeta_local_backup',JSON.stringify({at:new Date().toISOString(),data:bk}))}catch(e){}}
-   if(deletionArchiveChanged){
-    if(cloudDeletedRaw===null)delete last[dk];else last[dk]=cloudDeletedRaw;
-    dirty[dk]=1;
-   }
-   if(activeOrderRaw!==null&&filteredOrderRaw!==activeOrderRaw){
-    last[ok]=activeOrderRaw;
-    dirty[ok]=1;
-   }
-   keys().forEach(function(k){if(!(k in main))dirty[k]=1});
-   ready=true;flush();status();
-   return{changed:changed,migrated:!ids.length};
+   hydrated=true;
+   return{changed:changed,migrated:false};
   });
  });
 };
-function schedule(k){dirty[k]=1;clearTimeout(tm);tm=setTimeout(flush,1200);status()}
-function flush(){
- if(!ready)return;
- var ks=Object.keys(dirty);dirty={};if(!ks.length)return;
- var p=L.load().then(function(m){
-  var F=m.F,b=F.writeBatch(db),n=0;
-  ks.forEach(function(k){
-   var v=localStorage.getItem(k);if(v==null||last[k]===v)return;
-   last[k]=v;n++;
-   var ref=F.doc(db,'data',k);
-   if(v.length<=CH)b.set(ref,{v:v,parts:0,t:Date.now(),by:who});
-   else{var c=Math.ceil(v.length/CH);b.set(ref,{parts:c,t:Date.now(),by:who});for(var i=0;i<c;i++)b.set(F.doc(db,'data',k+'~p'+i),{s:v.slice(i*CH,(i+1)*CH)})}
-  });
-  if(!n)return;
-  pend++;status();
-  return b.commit().then(function(){pend--;status()},function(e){
-   pend--;ks.forEach(function(k){delete last[k];dirty[k]=1});status('err');clearTimeout(tm);tm=setTimeout(flush,15000);
-  });
- });
- inflight.push(p);p.then(function(){inflight=inflight.filter(function(x){return x!==p})});
-}
-Storage.prototype.setItem=function(k){
- var r=origSet.apply(this,arguments);
- if(ready&&this===localStorage&&typeof k==='string'&&k.indexOf(P)===0)schedule(k);
- return r;
-};
-function status(e){
- if(!badge){badge=document.createElement('div');badge.id='lp-badge';(document.body||document.documentElement).appendChild(badge)}
- var off=!navigator.onLine,busy=pend>0||Object.keys(dirty).length>0;
- var t=e==='err'?'Hindi pa na-sync, uulitin':off?'Offline, isi-sync pagbalik ng net':busy?'Nagsi-sync...':'Naka-sync';
- badge.textContent='\u2601 '+t;badge.className=(e==='err'||off)?'warn':'';
-}
-window.addEventListener('online',function(){if(ready)status()});
-window.addEventListener('offline',function(){if(ready)status()});
-L.wipe=function(keep){
- return L.load().then(function(m){
-  var F=m.F;
-  return F.getDocs(F.collection(db,'data')).then(function(snap){
-   var b=F.writeBatch(db),n=0;
-   snap.forEach(function(d){var id=d.id,base=id.indexOf('~p')>=0?id.slice(0,id.indexOf('~p')):id;if(base!==keep){b.delete(F.doc(db,'data',id));n++}});
-   if(!n)return;
-   return Promise.race([b.commit(),new Promise(function(_,rj){setTimeout(function(){rj({code:'unavailable'})},10000)})]);
-  });
- }).then(function(){last={};dirty={}});
-};
-L.flushNow=function(){flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
-L.syncNow=function(){return L.hydrate()};
-L.users=function(){return L.load().then(function(m){var F=m.F;return F.getDocs(F.collection(db,'roles')).then(function(s){var a=[];s.forEach(function(d){var x=d.data();a.push({uid:d.id,username:x.username||'?',role:x.role})});return a})})};
-L.addStaff=function(username,pw){
- var u=String(username).trim().toLowerCase();
- if(!/^[a-z0-9._-]{3,30}$/.test(u))return Promise.reject({code:'lp/badname'});
- return L.load().then(function(m){
-  var A=m.A,Au=m.Au,F=m.F,app2=A.initializeApp(C,'sec'+Date.now()),a2=Au.getAuth(app2),email=toEmail(u);
-  return Au.createUserWithEmailAndPassword(a2,email,pw).then(function(c){
-   return F.setDoc(F.doc(db,'roles',c.user.uid),{role:'staff',username:u,email:email});
-  }).then(function(){return Au.signOut(a2)}).then(function(){return A.deleteApp(app2)},function(e){return A.deleteApp(app2).then(function(){throw e},function(){throw e})});
- });
-};
-L.removeStaff=function(uid){return L.load().then(function(m){return m.F.deleteDoc(m.F.doc(db,'roles',uid))})};
-L.verifyPassword=function(id,pw){return L.load().then(function(m){var u=auth.currentUser;if(!u||toEmail(id)!==String(u.email||'').toLowerCase())return false;return m.Au.reauthenticateWithCredential(u,m.Au.EmailAuthProvider.credential(u.email,pw)).then(function(){return true}).catch(function(){return false})})};
-L.changePw=function(cur,nw){return L.load().then(function(m){var Au=m.Au,u=auth.currentUser;return Au.reauthenticateWithCredential(u,Au.EmailAuthProvider.credential(u.email,cur)).then(function(){return Au.updatePassword(u,nw)})})};
-L.reset=function(id){return L.load().then(function(m){return m.Au.sendPasswordResetEmail(auth,toEmail(id))})};
+/* Deliberately expose no POS write, staff-management, wipe, or sync-upload API. */
+L.flushNow=function(){return Promise.resolve()};
+L.syncNow=L.hydrate;
+L.wipe=function(){return Promise.reject(new Error('Read-only ang iOS Owner app.'))};
+L.addStaff=function(){return Promise.reject(new Error('Staff accounts are managed only in the Android Staff POS.'))};
+L.removeStaff=function(){return Promise.reject(new Error('Staff accounts are managed only in the Android Staff POS.'))};
+L.changePw=function(){return Promise.reject(new Error('Palitan ang account password sa approved account recovery flow.'))};
 L.logout=function(){
- flush();
- var wait=Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,5000)})]);
- return wait.then(function(){return L.load()}).then(function(m){return m.Au.signOut(auth)});
+ return L.load().then(function(m){return m.Au.signOut(auth)});
 };
 L.msg=function(e){
- var c=e&&e.code||'';
- if(/invalid-credential|user-not-found|wrong-password|invalid-email|missing-password/.test(c))return'Mali ang username/email o password.';
- if(c.indexOf('too-many')>=0)return'Masyadong maraming subok. Maghintay ng ilang minuto.';
- if(c.indexOf('network')>=0||c==='unavailable')return'Walang internet. Kailangan ng internet sa unang login sa device na ito.';
- if(c.indexOf('permission')>=0)return'Walang pahintulot sa database. Siguraduhing nailagay na ang Firestore rules.';
- if(c.indexOf('email-already')>=0)return'May gumagamit na ng username na iyan.';
- if(c.indexOf('weak')>=0)return'Ang password ay dapat 6 character o higit pa.';
- if(c.indexOf('requires-recent')>=0)return'Mag-login ulit bago palitan ang password.';
- if(c==='lp/badname')return'Username: 3 hanggang 30 na letra, numero, tuldok, dash o underscore lang.';
- if(e instanceof TypeError)return'Hindi ma-load ang Firebase. Kailangan ng internet sa unang bukas.';
- return'May error: '+(c||(e&&e.message)||'hindi alam');
+ var c=e&&e.code?String(e.code):'';
+ if(c.indexOf('invalid-credential')>=0||c.indexOf('user-not-found')>=0||c.indexOf('wrong-password')>=0)return'Mali ang username o password.';
+ if(c.indexOf('network')>=0||c==='unavailable')return'Walang internet. Kailangan ng internet para makakonekta sa shop database.';
+ if(c.indexOf('permission')>=0)return'Walang pahintulot sa database. Hindi pinapayagan ang Owner account.';
+ if(c.indexOf('too-many-requests')>=0)return'Masyadong maraming pagtatangka. Subukan muli mamaya.';
+ if(e instanceof TypeError)return'Hindi ma-load ang Firebase. Suriin ang internet connection.';
+ return'Hindi makakonekta sa Owner database. Subukan muli.';
 };
 })();
-
 </script>
 <script id="lp-login">
 (function(){
