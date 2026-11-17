@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="La Princesa Owner">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
-<title>La Princesa — Owner Monitor</title>
+<title>La Princesa — Owner POS</title>
 <style>
 :root{color-scheme:dark;--bg:#090f1d;--panel:#121c2e;--panel2:#18243a;--line:#27364f;--muted:#9aabc4;--text:#f4f7fc;--accent:#72e0c1;--warn:#f6c66d}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% -10%,#1b3850 0,transparent 42%),var(--bg);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
@@ -26,7 +26,7 @@ footer{text-align:center;color:#71839e;font-size:11px;padding:25px 0 8px}
 </head>
 <body>
 <div class="shell">
-<header><div class="brand"><div class="logo">LP</div><div><div class="eyebrow">La Princesa Aquaspin</div><h1>Owner Monitor</h1></div></div><span class="mode">READ ONLY</span></header>
+<header><div class="brand"><div class="logo">LP</div><div><div class="eyebrow">La Princesa Aquaspin</div><h1>Owner POS</h1></div></div><span class="mode">READ ONLY</span></header>
 <div class="notice" role="status"><strong>Hindi pa konektado sa live POS data</strong>Preview ng Owner App ito. Hindi pa naka-configure at nabe-verify ang cloud database at owner login. Walang totoong sales o customer records na ipinapakita rito.</div>
 <main>
 <section class="view active" id="overview">
@@ -41,11 +41,13 @@ footer{text-align:center;color:#71839e;font-size:11px;padding:25px 0 8px}
 </section>
 <section class="view" id="orders"><h2>Orders</h2><p class="sub">Order list at status — view only</p><div class="section-card"><div class="empty"><b>Wala pang live order feed</b>Ikokonekta pagkatapos ma-verify ang database at access rules.</div></div></section>
 <section class="view" id="customers"><h2>Customers</h2><p class="sub">Customer directory at order history</p><div class="section-card"><div class="empty"><b>Wala pang customer data</b>Walang local o demo customer records na gagawing kunwaring totoong data.</div></div></section>
+<section class="view" id="unpaid"><h2>Unpaid & Collections</h2><p class="sub">Mga natitirang balanse at payment status — Owner view only</p><div class="section-card"><div class="empty"><b>Wala pang live unpaid records</b>Hindi pa nakakonekta sa verified POS database.</div></div></section>
 <section class="view" id="reports"><h2>Reports</h2><p class="sub">Sales, collections at payment summaries</p><div class="two"><div class="section-card"><div class="section-head">Sales report <span class="pill">VIEW</span></div><div class="empty">Hindi pa available ang live report.</div></div><div class="section-card"><div class="section-head">Payment summary <span class="pill">VIEW</span></div><div class="empty">Hindi pa available ang live report.</div></div></div></section>
 <section class="view" id="more"><h2>Shop monitoring</h2><div class="list">
 <div class="section-card"><div class="section-head">Inventory & stock <span class="pill">VIEW ONLY</span></div><div class="empty">Nakaabang sa verified live data.</div></div>
 <div class="section-card"><div class="section-head">Staff & activity log <span class="pill">VIEW ONLY</span></div><div class="empty">Nakaabang sa verified live data.</div></div>
 <div class="section-card"><div class="section-head">Access & privacy <span class="pill">PROTECTED</span></div><div class="empty">Ang owner account ay dapat read-only sa database rules, hindi lang sa itsura ng app.</div></div>
+<div class="section-card"><div class="section-head">Owner Settings <span class="pill">OWNER ONLY</span></div><div class="empty"><b>Owner controls</b>Hiwalay ang Owner settings sa Staff settings. Ihahanda ang account, security at backup options pagkatapos maitatag ang ligtas na cloud access. Walang setting na makakapagbago ng Staff POS mula sa preview na ito.</div></div>
 </div></section>
 </main>
 <footer>La Princesa Owner Monitor · Development preview · No POS write actions</footer>
@@ -54,6 +56,7 @@ footer{text-align:center;color:#71839e;font-size:11px;padding:25px 0 8px}
 <button class="active" data-view="overview"><span class="ico">⌂</span>Home</button>
 <button data-view="orders"><span class="ico">▤</span>Orders</button>
 <button data-view="customers"><span class="ico">♙</span>Customers</button>
+<button data-view="unpaid"><span class="ico">₱</span>Unpaid</button>
 <button data-view="reports"><span class="ico">▥</span>Reports</button>
 <button data-view="more"><span class="ico">⋯</span>More</button>
 </div></nav>
