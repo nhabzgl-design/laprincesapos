@@ -1,5 +1,5 @@
 /* iOS Owner POS service worker — separate cache from Android Staff POS. */
-var VERSION='lp-owner-pos-v2';
+var VERSION='lp-owner-pos-v3';
 var CORE=['./','./index.html','./manifest.webmanifest','../icon-192.png','../icon-512.png','../icon-maskable-512.png','../apple-touch-icon.png'];
 self.addEventListener('install',function(e){
   e.waitUntil(caches.open(VERSION).then(function(c){return Promise.all(CORE.map(function(u){return c.add(u).catch(function(){})}))}).then(function(){return self.skipWaiting()}));
