@@ -1,6 +1,6 @@
 # La Princesa iOS Owner Monitor
 
-Status: development planning / integration blocked pending verified cloud configuration.
+Status: PWA preview shell created on development branch; live data integration blocked pending verified cloud configuration.
 
 ## Product scope
 
@@ -31,6 +31,12 @@ No camera, SMS integration, voice/video calling, or paid gateway is in scope.
 - The existing POS cloud layer writes POS state. It must not be reused as-is by a monitoring client because it is not a read-only interface and the current repository does not include verified Firestore Security Rules.
 - The iOS client must not be allowed to write to `data`. Read-only UI restrictions alone are insufficient; Firestore rules must enforce read-only owner access.
 - No verified Firebase project configuration or deployed security rules were found in the checked-in `main` source during this audit.
+
+## Current development files
+
+- `index.html`: iPhone-friendly monitoring preview with Overview, Orders, Customers, Reports, Inventory, Staff/Activity sections.
+- `manifest.webmanifest`, `sw.js`, and `icon.svg`: installable PWA shell assets.
+- The preview intentionally shows no sample sales/customer/order data and has no POS write actions. It is not connected to Firebase and is not a production/live dashboard.
 
 ## Safe implementation sequence
 
