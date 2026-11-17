@@ -18,7 +18,7 @@ header{padding:24px 4px 18px;display:flex;align-items:center;justify-content:spa
 .notice{border:1px solid #6b542b;background:#2b2417;color:#f4d89d;padding:13px 14px;border-radius:14px;line-height:1.45;margin:4px 0 18px}.notice strong{display:block;margin-bottom:3px;color:#ffe6b4}
 h2{font-size:17px;margin:22px 2px 12px}.sub{color:var(--muted);font-size:13px;margin:-5px 2px 14px}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric,.section-card{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:17px;padding:16px;min-width:0}.metric .label{color:var(--muted);font-size:12px}.metric .value{font-size:22px;font-weight:750;margin-top:9px}.metric .foot{font-size:11px;color:var(--muted);margin-top:5px}
-.nav{position:fixed;bottom:0;left:0;right:0;padding:9px 8px calc(9px + env(safe-area-inset-bottom));background:#0b1322ed;backdrop-filter:blur(16px);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:4}.navinner{width:min(100%,720px);display:grid;grid-template-columns:repeat(5,1fr);gap:4px}.nav button{background:none;border:0;color:var(--muted);padding:8px 2px;border-radius:12px;font:inherit;font-size:11px;display:grid;gap:4px;justify-items:center}.nav button.active{background:#1b3540;color:var(--accent)}.nav .ico{font-size:18px}
+.nav{position:fixed;bottom:0;left:0;right:0;padding:9px 8px calc(9px + env(safe-area-inset-bottom));background:#0b1322ed;backdrop-filter:blur(16px);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:4}.navinner{width:min(100%,1080px);display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}.navinner::-webkit-scrollbar{display:none}.nav button{flex:1 0 68px;min-width:68px;background:none;border:0;color:var(--muted);padding:8px 3px;border-radius:12px;font:inherit;font-size:10px;display:grid;gap:4px;justify-items:center}.nav button.active{background:#1b3540;color:var(--accent)}.nav .ico{font-size:18px}
 .view{display:none}.view.active{display:block}.section-card{margin-bottom:10px}.section-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-weight:650}.pill{font-size:10px;color:#c3d2e7;background:#24334a;border-radius:99px;padding:5px 8px}.empty{padding:24px 12px;text-align:center;color:var(--muted);font-size:13px;line-height:1.55}.empty b{display:block;color:#dce7f7;font-size:14px;margin-bottom:5px}.list{display:grid;gap:10px}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 footer{text-align:center;color:#71839e;font-size:11px;padding:25px 0 8px}
 @media(min-width:700px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.two{grid-template-columns:repeat(2,minmax(0,1fr))}.shell{padding-left:24px;padding-right:24px}}
@@ -43,14 +43,25 @@ footer{text-align:center;color:#71839e;font-size:11px;padding:25px 0 8px}
 <section class="view" id="customers"><h2>Customers</h2><p class="sub">Customer directory at order history</p><div class="section-card"><div class="empty"><b>Wala pang customer data</b>Walang local o demo customer records na gagawing kunwaring totoong data.</div></div></section>
 <section class="view" id="unpaid"><h2>Unpaid & Collections</h2><p class="sub">Mga natitirang balanse at payment status — Owner view only</p><div class="section-card"><div class="empty"><b>Wala pang live unpaid records</b>Hindi pa nakakonekta sa verified POS database.</div></div></section>
 <section class="view" id="reports"><h2>Reports</h2><p class="sub">Sales, collections at payment summaries</p><div class="two"><div class="section-card"><div class="section-head">Sales report <span class="pill">VIEW</span></div><div class="empty">Hindi pa available ang live report.</div></div><div class="section-card"><div class="section-head">Payment summary <span class="pill">VIEW</span></div><div class="empty">Hindi pa available ang live report.</div></div></div></section>
+
+<section class="view" id="inventory"><h2>Inventory & Stock</h2><p class="sub">Current stock, low-stock alerts and stock movement — Owner view only</p><div class="section-card"><div class="empty"><b>Wala pang live inventory data</b>Ipapakita rito ang stock at recorded deductions mula sa Staff POS kapag verified na ang cloud connection.</div></div></section>
+<section class="view" id="activity"><h2>Staff Activity & Logbook</h2><p class="sub">Order updates, voids, edits and recorded reasons</p><div class="section-card"><div class="empty"><b>Wala pang live activity records</b>Hindi mag-iimbento ng staff actions. Ipapakita lamang ang aktuwal na entries mula sa POS audit log.</div></div></section>
+<section class="view" id="expenses"><h2>Expenses</h2><p class="sub">Recorded shop expenses and net summary</p><div class="section-card"><div class="empty"><b>Wala pang live expense records</b>Ang net figures ay hindi ipapakita hangga't hindi nabe-verify ang expense at sales calculations.</div></div></section>
+<section class="view" id="shifts"><h2>Shifts & Cash Movements</h2><p class="sub">Current shift, opening cash and recorded cash movements</p><div class="section-card"><div class="empty"><b>Wala pang live shift data</b>Hiwalay na ipapakita ang cash movements at sales collections para hindi mapaghalo ang totals.</div></div></section>
+<section class="view" id="machines"><h2>Machines & Operations</h2><p class="sub">Laundry machine status and operational overview</p><div class="section-card"><div class="empty"><b>Wala pang live machine data</b>Ipapakita lamang ang machine records na aktuwal na naka-save sa Staff POS.</div></div></section>
+<section class="view" id="settings"><h2>Owner Settings</h2><p class="sub">Mga setting na para lamang sa Owner iPhone app</p>
+<div class="section-card"><div class="section-head">Owner account & security <span class="pill">OWNER ONLY</span></div><div class="empty"><b>Secure Owner sign-in</b>Ihahanda ang account management pagkatapos ma-verify ang authentication provider. Walang staff password o privileged secret na ilalagay sa app.</div></div>
+<div class="section-card"><div class="section-head">Backup & data export <span class="pill">PLANNED</span></div><div class="empty">Owner reporting/export options lamang. Hindi papayagan ang pag-import o pag-overwrite ng live Staff POS data mula sa iPhone.</div></div>
+<div class="section-card"><div class="section-head">Sync & connection <span class="pill">PLANNED</span></div><div class="empty">Ipapakita rito ang online/offline status at huling matagumpay na sync kapag nakakabit na ang verified cloud database.</div></div>
+<div class="section-card"><div class="section-head">Device permissions <span class="pill">READ ONLY</span></div><div class="empty">Hindi maaaring gumawa, mag-edit, mag-void, magbayad, magbago ng inventory, mag-print o magbukas ng cash drawer mula sa Owner app.</div></div>
+</section>
 <section class="view" id="more"><h2>Shop monitoring</h2><div class="list">
-<div class="section-card"><div class="section-head">Inventory & stock <span class="pill">VIEW ONLY</span></div><div class="empty">Nakaabang sa verified live data.</div></div>
-<div class="section-card"><div class="section-head">Staff & activity log <span class="pill">VIEW ONLY</span></div><div class="empty">Nakaabang sa verified live data.</div></div>
+<div class="section-card"><div class="section-head">More monitoring</div><div class="empty">Piliin ang Inventory, Activity, Expenses, Shifts o Machines sa navigation.</div></div>
 <div class="section-card"><div class="section-head">Access & privacy <span class="pill">PROTECTED</span></div><div class="empty">Ang owner account ay dapat read-only sa database rules, hindi lang sa itsura ng app.</div></div>
-<div class="section-card"><div class="section-head">Owner Settings <span class="pill">OWNER ONLY</span></div><div class="empty"><b>Owner controls</b>Hiwalay ang Owner settings sa Staff settings. Ihahanda ang account, security at backup options pagkatapos maitatag ang ligtas na cloud access. Walang setting na makakapagbago ng Staff POS mula sa preview na ito.</div></div>
+
 </div></section>
 </main>
-<footer>La Princesa Owner Monitor · Development preview · No POS write actions</footer>
+<footer>La Princesa Owner POS · Development preview · Read-only · No POS write actions</footer>
 </div>
 <nav class="nav" aria-label="Main navigation"><div class="navinner">
 <button class="active" data-view="overview"><span class="ico">⌂</span>Home</button>
@@ -58,6 +69,12 @@ footer{text-align:center;color:#71839e;font-size:11px;padding:25px 0 8px}
 <button data-view="customers"><span class="ico">♙</span>Customers</button>
 <button data-view="unpaid"><span class="ico">₱</span>Unpaid</button>
 <button data-view="reports"><span class="ico">▥</span>Reports</button>
+<button data-view="inventory"><span class="ico">▦</span>Stock</button>
+<button data-view="activity"><span class="ico">☷</span>Activity</button>
+<button data-view="expenses"><span class="ico">−₱</span>Expenses</button>
+<button data-view="shifts"><span class="ico">◷</span>Shifts</button>
+<button data-view="machines"><span class="ico">▤</span>Machines</button>
+<button data-view="settings"><span class="ico">⚙</span>Settings</button>
 <button data-view="more"><span class="ico">⋯</span>More</button>
 </div></nav>
 <script>
