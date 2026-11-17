@@ -1,0 +1,14 @@
+{
+  "name": "La Princesa Owner Monitor",
+  "short_name": "LP Owner",
+  "description": "Read-only owner monitoring preview for La Princesa Aquaspin",
+  "id": "./",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#090f1d",
+  "theme_color": "#111827",
+  "lang": "fil",
+  "icons": [{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]
+}
