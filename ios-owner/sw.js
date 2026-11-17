@@ -12,7 +12,7 @@ self.addEventListener('fetch',function(e){
   if(r.method!=='GET')return;
   var u=new URL(r.url),same=u.origin===self.location.origin,sdk=u.hostname==='www.gstatic.com'&&u.pathname.indexOf('/firebasejs/')===0;
   if(!same&&!sdk)return;
-  if(r.mode==='navigate'||(same&&/\\.html?$/.test(u.pathname))){
+  if(r.mode==='navigate'||(same&&/\.html?$/.test(u.pathname))){
     e.respondWith(fetch(r).then(function(res){var cp=res.clone();caches.open(VERSION).then(function(c){c.put('./index.html',cp)});return res}).catch(function(){return caches.match('./index.html').then(function(m){return m||caches.match('./')})}));
     return;
   }
