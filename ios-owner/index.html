@@ -3394,7 +3394,74 @@ window.printReceiptOnly=async function(){
    var printBase='<style>html,body{display:block!important;margin:0!important;padding:0!important;width:'+receiptWidth+'px!important;min-width:'+receiptWidth+'px!important;max-width:'+receiptWidth+'px!important;background:#fff!important;color:#000!important;overflow:visible!important}#lp-print-root{display:block!important;width:'+receiptWidth+'px!important;min-width:'+receiptWidth+'px!important;max-width:'+receiptWidth+'px!important;margin:0!important;padding:0!important;background:#fff!important;color:#000!important;overflow:visible!important;position:static!important;transform:none!important}#lp-print-root *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}</style>';
    var html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width='+receiptWidth+', initial-scale=1, maximum-scale=1">'+
     '<style>'+appStyles+'</style>'+printBase+
-    '</head><body><div id="lp-print-root">'+receiptClone.outerHTML+'</div></body></html>';
+    '</head><body><div id="lp-print-root">'+receiptClone.outerHTML+'</div>
+<!-- LP_OWNER_READONLY_GUARD_V1: owner-only, read-only UI guard. Does not modify Android main. -->
+<style id="lp-owner-readonly-style">
+#lp-owner-readonly-banner{position:sticky;top:0;z-index:99990;padding:9px 14px;text-align:center;background:#142b25;color:#b8ffe2;border-bottom:1px solid #28634f;font:700 12px/1.4 system-ui,sans-serif;letter-spacing:.04em}
+#bt-fab,[id*="drawer"],[class*="drawer-trigger"],[data-action*="drawer"]{display:none!important}
+.lp-owner-hidden-action{display:none!important}
+</style>
+<script id="lp-owner-readonly-guard">
+(function(){
+'use strict';
+if(window.__LP_OWNER_READONLY_GUARD_V1)return;
+window.__LP_OWNER_READONLY_GUARD_V1=true;
+var safe=[
+'dashboard','order queue','receipts','archive','shifts','e-wallet','pickup','delivery',
+'customers','reports','inventory','expenses','machines','logout','log out','back',
+'close','refresh','search','filter','today','this week','this month','previous','next',
+'view','view details','activity log','dark mode','light mode','theme'
+];
+var hidden=['create order','services','gas','branches','staff'];
+var blocked=/\b(add|save|edit|update|delete|remove|void|cancel|pay|payment|collect|refund|reverse|drawer|print|reprint|export|import|clear all|reset|start shift|close shift|open shift|mark ready|mark claimed|set on duty|set off duty|complete|checkout|submit|confirm order|archive order|restore)\b/i;
+function label(el){return String(el.innerText||el.textContent||el.getAttribute('aria-label')||el.title||'').replace(/\s+/g,' ').trim().toLowerCase()}
+function isSafe(el){
+ var t=label(el);
+ if(!t)return false;
+ if(hidden.some(function(x){return t===x||t.indexOf(x+' ')===0;}))return false;
+ if(blocked.test(t))return false;
+ return safe.some(function(x){return t===x||t.indexOf(x+' ')===0;});
+}
+function scan(){
+ document.querySelectorAll('button,[role="button"],a').forEach(function(el){
+  var t=label(el);
+  if(hidden.some(function(x){return t===x||t.indexOf(x+' ')===0;})){
+   el.classList.add('lp-owner-hidden-action');
+   el.setAttribute('aria-hidden','true');
+  }
+ });
+ var root=document.getElementById('root');
+ if(root&&!document.getElementById('lp-owner-readonly-banner')){
+  var b=document.createElement('div');b.id='lp-owner-readonly-banner';
+  b.textContent='OWNER VIEW • READ ONLY — Walang puwedeng baguhin o i-save na transaction';
+  root.insertBefore(b,root.firstChild);
+ }
+ var fab=document.getElementById('bt-fab');if(fab)fab.remove();
+}
+document.addEventListener('click',function(ev){
+ var el=ev.target&&ev.target.closest?ev.target.closest('button,[role="button"],a'):null;
+ if(!el)return;
+ if(!isSafe(el)){
+  ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();
+  var old=document.getElementById('lp-owner-readonly-toast');if(old)old.remove();
+  var n=document.createElement('div');n.id='lp-owner-readonly-toast';
+  n.textContent='Read-only ang Owner POS. Hindi pinapayagan ang pagbabago ng records.';
+  n.style.cssText='position:fixed;z-index:999999;left:50%;bottom:24px;transform:translateX(-50%);max-width:90vw;padding:12px 16px;border-radius:12px;background:#202b35;color:#fff;border:1px solid #668078;font:600 13px system-ui;box-shadow:0 8px 30px #0008;text-align:center';
+  document.body.appendChild(n);setTimeout(function(){n.remove()},2600);
+ }
+},true);
+document.addEventListener('submit',function(ev){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation()},true);
+document.addEventListener('keydown',function(ev){
+ if((ev.key==='Enter'||ev.key===' ')&&ev.target&&ev.target.matches&&ev.target.matches('button,[role="button"]')){
+  var el=ev.target;if(!isSafe(el)){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation()}
+ }
+},true);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan);else scan();
+new MutationObserver(scan).observe(document.documentElement,{childList:true,subtree:true});
+})();
+</script>
+
+</body></html>';
    var encoded=btoa(unescape(encodeURIComponent(html)));
    var ok=!!window.NativePrinter.printHtmlBase64(encoded,receiptWidth);
    if(!ok){toast('Hindi naipadala ang formatted receipt. Suriin ang printer connection.');return false}
