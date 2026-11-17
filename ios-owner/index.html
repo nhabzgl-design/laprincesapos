@@ -3526,10 +3526,11 @@ window.openSettings=function(){close();var o=document.createElement('div');o.id=
 })();
 </script>
 <script id="lp-pwa">if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}</script>
+<script src="firebase-config.js"></script>
 <script id="lp-firebase-config">
-/* iOS Owner stays locked until the exact live Staff POS Firebase project is verified.
-   Never fall back to local-only credentials or demo records. */
-window.LP_FIREBASE={apiKey:"",authDomain:"",projectId:"",storageBucket:"",messagingSenderId:"",appId:""};
+/* Load only the verified public Web App config from the separate config file.
+   A null config intentionally keeps the Owner app locked; never use demo/local fallback. */
+window.LP_FIREBASE=window.LP_OWNER_FIREBASE_CONFIG||null;
 </script>
 <script id="lp-cloud">
 (function(){
