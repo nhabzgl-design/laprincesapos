@@ -99,11 +99,12 @@ if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.se
 const gate=document.getElementById('owner-auth-gate'),form=document.getElementById('owner-login-form'),button=document.getElementById('owner-login-button'),status=document.getElementById('owner-auth-status'),logout=document.getElementById('owner-logout');
 const config=window.LP_OWNER_FIREBASE_CONFIG;
 const configured=!!(config&&config.apiKey&&config.authDomain&&config.projectId&&config.appId);
+const demoMode=new URLSearchParams(location.search).get('demo')==='1';
 let auth=null,firestore=null,authApi=null,firestoreApi=null;
 function say(message,isError=false){status.textContent=message;status.classList.toggle('error',isError)}
 function normalizeIdentity(value){const v=String(value||'').trim().toLowerCase();return v.includes('@')?v:v.replace(/\s+/g,'')+'@laprincesa-pos.app'}
 async function verifyOwner(user){if(!user||!firestore||!firestoreApi)return false;const ref=firestoreApi.doc(firestore,'roles',user.uid);const snap=await firestoreApi.getDocFromServer(ref);return snap.exists()&&snap.data().role==='owner'}
-if(configured){
+if(configured&&!demoMode){
  try{
   const [appApi,authModule,dbModule]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js')]);
   const app=appApi.initializeApp(config,'lp-owner-ios');auth=authModule.getAuth(app);firestore=dbModule.getFirestore(app);authApi=authModule;firestoreApi=dbModule;button.disabled=false;button.textContent='Secure Owner Login';say('Firebase configuration loaded. Mag-login gamit ang Owner account. Server verification ang gagamitin; hindi sapat ang cached role.');
@@ -151,6 +152,64 @@ function connectOwnerData(){
   renderOwnerData(raw);lastSyncAt=new Date();banner.innerHTML='<strong>Connected · Live POS data</strong>Huling matagumpay na update: '+lastSyncAt.toLocaleTimeString('en-PH')+'. Read-only monitoring.';
  },err=>{banner.innerHTML='<strong>Cloud data unavailable</strong>Hindi mabasa ang POS data mula sa server. Ipinapakita lamang ang disconnected state. ('+(err.code||'connection error')+')';});
 }
+
+if(demoMode){
+ const localNow=new Date(), localISO=new Date(localNow.getTime()-localNow.getTimezoneOffset()*60000).toISOString();
+ const orders=[
+  {id:'D-1001',customerName:'Maria Santos',service:'Wash & Fold',total:850,collected:850,payMethod:'GCash',date:localISO},
+  {id:'D-1002',customerName:'Juan Dela Cruz',service:'Comforter',total:1200,collected:500,payMethod:'Cash',date:localISO},
+  {id:'D-1003',customerName:'Ana Reyes',service:'Dry Cleaning',total:650,collected:650,payMethod:'GCash',date:localISO},
+  {id:'D-1004',customerName:'Mark Villanueva',service:'Full Service',total:1500,collected:1500,payMethod:'Cash',date:localISO},
+  {id:'D-1005',customerName:'Liza Garcia',service:'Wash & Dry',total:750,collected:750,payMethod:'Maya',date:localISO},
+  {id:'D-1006',customerName:'Carlo Mendoza',service:'Blanket',total:900,collected:900,payMethod:'GCash',date:localISO},
+  {id:'D-1007',customerName:'Joy Aquino',service:'Wash & Fold',total:1100,collected:1100,payMethod:'Cash',date:localISO},
+  {id:'D-1008',customerName:'Ramon Flores',service:'Dry Cleaning',total:500,collected:500,payMethod:'GCash',date:localISO},
+  {id:'D-1009',customerName:'Ella Navarro',service:'Comforter',total:1000,collected:1000,payMethod:'Maya',date:localISO}
+ ];
+ const demoRaw={
+  laPrincesa_orders_v2:JSON.stringify(orders),
+  laPrincesa_customers_v2:JSON.stringify([
+   {name:'Maria Santos',phone:'09•• ••• 1021',address:'Sample customer'},
+   {name:'Juan Dela Cruz',phone:'09•• ••• 2042',address:'Sample customer'},
+   {name:'Ana Reyes',phone:'09•• ••• 3153',address:'Sample customer'},
+   {name:'Mark Villanueva',phone:'09•• ••• 4264',address:'Sample customer'},
+   {name:'Liza Garcia',phone:'09•• ••• 5375',address:'Sample customer'}
+  ]),
+  laPrincesa_inventory_v2:JSON.stringify([
+   {name:'Liquid Detergent',stock:18,unit:'L'},
+   {name:'Fabric Conditioner',stock:12,unit:'L'},
+   {name:'Plastic Laundry Bag',stock:145,unit:'pcs'},
+   {name:'Bleach',stock:4,unit:'L'},
+   {name:'Laundry Net',stock:22,unit:'pcs'}
+  ]),
+  laPrincesa_activity_log_v1:JSON.stringify([
+   {action:'Order created',username:'Sample Cashier',date:localISO,reason:'Demo record'},
+   {action:'Payment recorded',username:'Sample Cashier',date:localISO,reason:'GCash · Demo record'},
+   {action:'Inventory deducted',username:'Sample System',date:localISO,reason:'Demo record'}
+  ]),
+  laPrincesa_expenses_v2:JSON.stringify([
+   {category:'Detergent supply',amount:1250,date:localISO},
+   {category:'Electricity',amount:2100,date:localISO},
+   {category:'Water',amount:650,date:localISO}
+  ]),
+  laPrincesa_shift_v1:JSON.stringify([{type:'Shift opened',staff:'Sample Cashier',date:localISO,amount:2000}]),
+  laPrincesa_shift_cash_v1:JSON.stringify([{type:'Opening cash',staff:'Sample Cashier',date:localISO,amount:2000}]),
+  laPrincesa_shift_movements_v1:JSON.stringify([{type:'Cash in',staff:'Sample Cashier',date:localISO,amount:500,note:'Demo only'}]),
+  laPrincesa_machines:JSON.stringify([
+   {name:'Washer 01',status:'Available'},
+   {name:'Washer 02',status:'In use'},
+   {name:'Dryer 01',status:'Available'},
+   {name:'Dryer 02',status:'Maintenance'}
+  ])
+ };
+ document.body.classList.add('owner-authenticated');
+ gate.hidden=true;
+ const modeBadge=document.querySelector('.mode');if(modeBadge)modeBadge.textContent='DEMO · READ ONLY';
+ const banner=document.querySelector('.notice');
+ if(banner)banner.innerHTML='<strong>DEMO PREVIEW — sample data lamang</strong>Hindi ito totoong sales, customer, staff o inventory data. Walang koneksyon sa Firebase at walang binabago sa production POS.';
+ renderOwnerData(demoRaw);
+}
+
 form.addEventListener('submit',async event=>{event.preventDefault();if(!configured||!auth||!authApi){say('Hindi pa configured ang Firebase project. Hindi pinapayagan ang login.',true);return}button.disabled=true;say('Sinusuri ang login at Owner permission…');try{await authApi.setPersistence(auth,authApi.browserLocalPersistence);await authApi.signInWithEmailAndPassword(auth,normalizeIdentity(document.getElementById('owner-identity').value),document.getElementById('owner-password').value);say('Naka-login. Hinihintay ang server verification ng Owner role…')}catch(e){say(e.code==='auth/invalid-credential'?'Mali ang username/email o password.':'Hindi makapag-login: '+(e.code||'network error')+'.',true)}finally{button.disabled=false}});
 </script>
 </body></html>
