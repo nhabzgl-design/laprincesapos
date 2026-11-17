@@ -23,14 +23,17 @@ A separate iPhone-friendly, read-only Owner app for La Princesa POS. The shop An
 
 No camera, SMS integration, voice/video calling, or paid gateway is in scope.
 
-## Repository audit (main branch, 2026-11-17)
+## Repository audit (2026-11-17)
 
-- The Android app is a bundled Android WebView app. Its Java bridge exposes printer and backup functionality. These files must not be changed for the iOS monitoring project.
-- The current POS HTML contains a Firebase Auth/Firestore integration, but `window.LP_FIREBASE` has empty `apiKey` and `projectId` values on `main`. Therefore the cloud layer is disabled in this checked-in source.
-- When enabled, the existing cloud layer reads and writes documents in Firestore collection `data`, with POS localStorage keys prefixed `laPrincesa_`. It hydrates by one-time `getDocs` calls and does not currently use Firestore `onSnapshot` listeners.
-- The existing POS cloud layer writes POS state. It must not be reused as-is by a monitoring client because it is not a read-only interface and the current repository does not include verified Firestore Security Rules.
-- The iOS client must not be allowed to write to `data`. Read-only UI restrictions alone are insufficient; Firestore rules must enforce read-only owner access.
-- No verified Firebase project configuration or deployed security rules were found in the checked-in `main` source during this audit.
+Cross-checked the checked-in POS `index.html` on `main`, `native-apk-fix`, `stable/apk-235-baseline`, and `fix/cash-drawer-before-receipt`.
+
+- All four checked-in versions contain the Firebase Auth/Firestore cloud module, but `window.LP_FIREBASE` has empty `apiKey` and `projectId` values. In these source versions, the cloud module therefore stays disabled unless a different build/deployment injects configuration (no such injection was verified in the repository).
+- When enabled, the cloud module reads and writes documents in Firestore collection `data`, using POS localStorage keys prefixed `laPrincesa_`.
+- Initial hydration uses `getDocs(collection(db,'data'))`; the module does not register Firestore `onSnapshot` listeners. Its normal localStorage write interception uploads changes after a short debounce, but that is not a live remote-change subscription. The manual “Mag-sync ngayon” action performs another one-time hydrate.
+- The cloud module is not read-only: it uploads local POS state, has a cloud wipe path, and the role bootstrap can create the first owner role. Do not reuse this module as the iOS Owner client's data-access layer.
+- No Firestore Security Rules, Firebase project config file, or verified deployed rules were found in the checked-in repository. The real runtime Firebase project/configuration remains unverified.
+- Conclusion: repository source alone does not establish that the installed Android POS is currently syncing to a shared cloud database. Do not display live data or claim cross-device real-time sync until the actual runtime backend is verified.
+- Do not modify the Android POS, APK source, printer bridge, receipt-print sequence, or cash-drawer behavior as part of the iOS monitor work.
 
 ## Current development files
 
