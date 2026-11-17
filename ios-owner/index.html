@@ -29,6 +29,51 @@ body:not(.owner-authenticated) .shell,body:not(.owner-authenticated) .nav{displa
 .auth-card{width:min(100%,430px);background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:0 18px 60px #0005}
 .auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}.auth-logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#7be4c3,#3988a5);display:grid;place-items:center;color:#08202a;font-weight:900;font-size:20px}
 .auth-card h1{font-size:21px;margin:0 0 5px}.auth-card p{color:var(--muted);font-size:13px;line-height:1.5}.auth-card label{display:block;font-size:12px;color:#cbd7e8;margin:14px 0 6px}.auth-card input{width:100%;padding:13px;border:1px solid var(--line);border-radius:11px;background:#0b1424;color:var(--text);font:inherit}.auth-card button{width:100%;padding:13px;border:0;border-radius:11px;background:var(--accent);color:#08231e;font-weight:750;font:inherit;margin-top:16px}.auth-card button:disabled{opacity:.45}.auth-status{margin-top:13px;padding:11px;border-radius:10px;background:#0b1424;color:#d7e3f4;font-size:12px;line-height:1.5}.auth-status.error{color:#ffd1c9;border:1px solid #71443f}.auth-foot{font-size:11px!important;margin-top:18px}
+
+/* La Princesa Staff POS visual system — Owner read-only adaptation */
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+:root{color-scheme:dark;--bg:#0F0F1E;--panel:#1E1E3A;--panel2:#252542;--line:#2D2D4D;--muted:#9CA3AF;--text:#FFFFFF;--accent:#E91E8C;--warn:#f6c66d;--purple:#7B2FFF;--navy:#1A1A4E}
+*{box-sizing:border-box;font-family:"Plus Jakarta Sans",system-ui,sans-serif}
+body{background:var(--bg);color:var(--text);font:14px "Plus Jakarta Sans",system-ui,sans-serif;min-height:100vh}
+h1,h2,.eyebrow,.metric .value{font-family:"Baloo 2",cursive}
+.shell{max-width:none;margin:0;padding:0 24px 110px 294px}
+header{position:sticky;top:0;z-index:5;margin:0 -24px 22px;padding:14px 24px;background:#0F0F1Eeb;border-bottom:1px solid #1E1E3A;backdrop-filter:blur(18px)}
+.brand{gap:12px}.logo,.auth-logo{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7B2FFF,#E91E8C);color:white;box-shadow:0 0 0 3px #E91E8C;font-family:"Baloo 2",cursive}
+.eyebrow{font-family:"Plus Jakarta Sans",sans-serif;color:#E91E8C;font-weight:800;letter-spacing:.12em;font-size:10px}
+h1{font-size:22px;margin:0;color:#fff}
+.mode{border:1px solid #E91E8C;color:#ff8bc5;background:#32132d;font-weight:800;letter-spacing:.06em}
+.notice{border:1px solid #7B2FFF;background:#21183a;color:#eadfff;border-radius:16px}
+.notice strong{color:#ff8bc5}
+h2{font-size:24px;color:#fff;margin:26px 2px 5px}
+.sub{color:#9CA3AF}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.metric,.section-card{background:linear-gradient(145deg,#252542,#1E1E3A);border:1px solid #2D2D4D;border-radius:18px;box-shadow:0 8px 24px #0003}
+.metric .label{color:#9CA3AF;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:10px}
+.metric .value{font-size:27px;color:#ff8bc5}.metric .foot{color:#9CA3AF}
+.section-head{color:#fff}.pill{color:#ffb4d9;background:#3a1b3a;border:1px solid #71305c}
+.empty{color:#9CA3AF}.empty b{color:#fff}
+.nav{position:fixed;inset:0 auto 0 0;width:270px;padding:18px 12px;background:#0F0F1E;border-right:1px solid #1E1E3A;border-top:0;display:flex;align-items:stretch;justify-content:flex-start;z-index:20}
+.navinner{width:100%;display:flex;flex-direction:column;gap:5px;overflow-y:auto;overflow-x:hidden}
+.nav button{flex:0 0 auto;width:100%;min-width:0;display:flex;align-items:center;justify-content:flex-start;gap:13px;text-align:left;padding:12px 14px;border-radius:12px;color:#9CA3AF;font-size:12px;font-weight:700}
+.nav button.active{background:linear-gradient(90deg,#38205f,#3a1838);color:#ff8bc5;box-shadow:inset 3px 0 #E91E8C}
+.nav .ico{font-size:18px;width:22px;text-align:center}
+footer{color:#73738e}
+.auth-gate{background:radial-gradient(ellipse at 80% -10%,#33205c 0,transparent 42%),#0F0F1E}
+.auth-card{background:linear-gradient(145deg,#252542,#1E1E3A);border:1px solid #2D2D4D;border-radius:24px;box-shadow:0 18px 60px #0008}
+.auth-logo{display:grid;place-items:center}.auth-card h1{font-size:26px}
+.auth-card p,.auth-card label{color:#b5b5ca}.auth-card input{background:#111126;border:1px solid #39395c;border-radius:12px}
+.auth-card button{background:linear-gradient(90deg,#7B2FFF,#E91E8C);color:#fff;font-weight:800;border-radius:12px}
+.auth-status{background:#111126;border:1px solid #39395c;color:#d9d9e8}
+@media(min-width:900px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:760px){
+.shell{padding:0 14px calc(100px + env(safe-area-inset-bottom))}
+header{margin:0 -14px 16px;padding:12px 14px}
+.nav{inset:auto 0 0;width:100%;height:auto;padding:8px 7px calc(8px + env(safe-area-inset-bottom));background:#0F0F1Eed;border-right:0;border-top:1px solid #2D2D4D}
+.navinner{width:100%;flex-direction:row;gap:3px;overflow-x:auto}
+.nav button{flex:1 0 66px;width:auto;min-width:66px;display:grid;justify-content:center;justify-items:center;text-align:center;gap:4px;padding:8px 3px;font-size:10px}
+.nav button.active{box-shadow:inset 0 3px #E91E8C}.nav .ico{width:auto;font-size:17px}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 </style>
 </head>
 <body><section class="auth-gate" id="owner-auth-gate" aria-labelledby="owner-auth-title"><div class="auth-card"><div class="auth-brand"><div class="auth-logo">LP</div><div><div class="eyebrow">La Princesa Aquaspin</div><div class="eyebrow">Secure Owner Access</div></div></div><h1 id="owner-auth-title">Owner POS Login</h1><p>Para lamang sa Owner account. Kailangang ma-verify sa server ang Owner role bago buksan ang monitoring dashboard.</p><form id="owner-login-form"><label for="owner-identity">Owner username o email</label><input id="owner-identity" name="identity" autocomplete="username" required><label for="owner-password">Password</label><input id="owner-password" name="password" type="password" autocomplete="current-password" required><button id="owner-login-button" type="submit" disabled>Login unavailable — setup needed</button></form><div class="auth-status" id="owner-auth-status" role="status" aria-live="polite">Hindi pa naka-configure ang verified Firebase project. Hindi muna papayagan ang login hangga't hindi ito naitatakda.</div><p class="auth-foot">Read-only Owner access · Walang Staff POS write controls · Walang demo account</p></div></section>
