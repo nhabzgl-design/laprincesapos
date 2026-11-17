@@ -101,7 +101,7 @@ const config=window.LP_OWNER_FIREBASE_CONFIG;
 const configured=!!(config&&config.apiKey&&config.authDomain&&config.projectId&&config.appId);
 let auth=null,firestore=null,authApi=null,firestoreApi=null;
 function say(message,isError=false){status.textContent=message;status.classList.toggle('error',isError)}
-function normalizeIdentity(value){const v=String(value||'').trim().toLowerCase();return v.includes('@')?v:v.replace(/\\s+/g,'')+'@laprincesa-pos.app'}
+function normalizeIdentity(value){const v=String(value||'').trim().toLowerCase();return v.includes('@')?v:v.replace(/\s+/g,'')+'@laprincesa-pos.app'}
 async function verifyOwner(user){if(!user||!firestore||!firestoreApi)return false;const ref=firestoreApi.doc(firestore,'roles',user.uid);const snap=await firestoreApi.getDocFromServer(ref);return snap.exists()&&snap.data().role==='owner'}
 if(configured){
  try{
