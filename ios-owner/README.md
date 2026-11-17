@@ -1,6 +1,6 @@
 # La Princesa iOS Owner Monitor
 
-Status: PWA Owner client with secure server-verified login and a read-only Firestore listener prepared on the development branch. Live use remains blocked until the actual Staff POS Firebase project, Owner role, and deployed rules are verified.
+Status: development PWA client. The iOS code now uses server-checked Owner role lookup and a read-only Firestore data reader; local/demo login and POS cloud-write APIs are disabled. Firebase config is intentionally blank, and deployed Firestore rules have not been verified. This is not production-ready yet.
 
 ## Product scope
 
@@ -37,12 +37,12 @@ Cross-checked the checked-in POS `index.html` on `main`, `native-apk-fix`, `stab
 
 ## Current development files
 
-- `index.html`: iPhone-friendly Owner client with server-verified login, logout, and a read-only Firestore snapshot listener for the Android POS `data` collection. It maps the known localStorage-key document format to Owner monitoring views.
+- `index.html`: iPhone-friendly Owner PWA. When the verified Firebase config is supplied, it authenticates, checks `roles/{uid}` from the server, and reads only the approved POS data keys from Firestore. The iOS client exposes no POS upload, wipe, staff-management, or transaction-write API.
 - `firebase-config.js`: intentionally blank until the exact Android Staff POS Firebase project is confirmed.
 - `FIREBASE-SETUP-CHECKLIST.md`: safe shared-project, Auth, Firestore rules, and testing steps.
 - `NETLIFY-DEPLOY-CHECKLIST.md`: isolated Netlify draft deployment settings.
 - `manifest.webmanifest`, `sw.js`, and `icon.svg`: installable PWA shell assets.
-- The client intentionally shows no sample sales/customer/order data and has no POS write actions. It will not connect until the real Firebase web config is populated. Once connected, it reads Firestore `data` through a snapshot listener; it never writes POS data. This is still a development build, not a production/live service.
+- The client intentionally shows no sample sales/customer/order data and stays locked while Firebase config is blank. Once connected, it reads approved documents from Firestore `data` through a snapshot listener and refreshes the view when records change. Client-side read-only code is not a substitute for Firestore Security Rules: the deployed rules must independently deny Owner writes before release. This is still a development build, not a production/live service.
 
 ## Safe implementation sequence
 
