@@ -3178,7 +3178,7 @@ button:active::after{opacity:1;transform:scale(1.6);transition:0s}
 <meta name="theme-color" content="#160b3a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Aquaspin POS">
+<meta name="apple-mobile-web-app-title" content="La Princesa Owner">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="../apple-touch-icon.png">
 <link rel="icon" type="image/png" href="../icon-192.png">
@@ -4152,6 +4152,8 @@ function scan(){
 document.addEventListener('click',function(ev){
  var el=ev.target&&ev.target.closest?ev.target.closest('button,[role="button"],a'):null;
  if(!el)return;
+ /* Keep Owner authentication controls fully functional. */
+ if(el.closest&&el.closest('#lp-gate'))return;
  if(!isSafe(el)){
   ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation();
   var old=document.getElementById('lp-owner-readonly-toast');if(old)old.remove();
@@ -4161,10 +4163,10 @@ document.addEventListener('click',function(ev){
   document.body.appendChild(n);setTimeout(function(){n.remove()},2600);
  }
 },true);
-document.addEventListener('submit',function(ev){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation()},true);
+document.addEventListener('submit',function(ev){if(ev.target&&ev.target.closest&&ev.target.closest('#lp-gate'))return;ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation()},true);
 document.addEventListener('keydown',function(ev){
  if((ev.key==='Enter'||ev.key===' ')&&ev.target&&ev.target.matches&&ev.target.matches('button,[role="button"]')){
-  var el=ev.target;if(!isSafe(el)){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation()}
+  var el=ev.target;if(el.closest&&el.closest('#lp-gate'))return;if(!isSafe(el)){ev.preventDefault();ev.stopPropagation();if(ev.stopImmediatePropagation)ev.stopImmediatePropagation()}
  }
 },true);
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan);else scan();
