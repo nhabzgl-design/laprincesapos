@@ -1,6 +1,6 @@
 # La Princesa iOS Owner Monitor
 
-Status: PWA preview shell created on development branch; live data integration blocked pending verified cloud configuration.
+Status: PWA Owner client with secure server-verified login and a read-only Firestore listener prepared on the development branch. Live use remains blocked until the actual Staff POS Firebase project, Owner role, and deployed rules are verified.
 
 ## Product scope
 
@@ -37,9 +37,12 @@ Cross-checked the checked-in POS `index.html` on `main`, `native-apk-fix`, `stab
 
 ## Current development files
 
-- `index.html`: iPhone-friendly monitoring preview with Overview, Orders, Customers, Reports, Inventory, Staff/Activity sections.
+- `index.html`: iPhone-friendly Owner client with server-verified login, logout, and a read-only Firestore snapshot listener for the Android POS `data` collection. It maps the known localStorage-key document format to Owner monitoring views.
+- `firebase-config.js`: intentionally blank until the exact Android Staff POS Firebase project is confirmed.
+- `FIREBASE-SETUP-CHECKLIST.md`: safe shared-project, Auth, Firestore rules, and testing steps.
+- `NETLIFY-DEPLOY-CHECKLIST.md`: isolated Netlify draft deployment settings.
 - `manifest.webmanifest`, `sw.js`, and `icon.svg`: installable PWA shell assets.
-- The preview intentionally shows no sample sales/customer/order data and has no POS write actions. It is not connected to Firebase and is not a production/live dashboard.
+- The client intentionally shows no sample sales/customer/order data and has no POS write actions. It will not connect until the real Firebase web config is populated. Once connected, it reads Firestore `data` through a snapshot listener; it never writes POS data. This is still a development build, not a production/live service.
 
 ## Safe implementation sequence
 
