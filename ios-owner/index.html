@@ -22,9 +22,17 @@ h2{font-size:17px;margin:22px 2px 12px}.sub{color:var(--muted);font-size:13px;ma
 .view{display:none}.view.active{display:block}.section-card{margin-bottom:10px}.section-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-weight:650}.pill{font-size:10px;color:#c3d2e7;background:#24334a;border-radius:99px;padding:5px 8px}.empty{padding:24px 12px;text-align:center;color:var(--muted);font-size:13px;line-height:1.55}.empty b{display:block;color:#dce7f7;font-size:14px;margin-bottom:5px}.list{display:grid;gap:10px}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 footer{text-align:center;color:#71839e;font-size:11px;padding:25px 0 8px}
 @media(min-width:700px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.two{grid-template-columns:repeat(2,minmax(0,1fr))}.shell{padding-left:24px;padding-right:24px}}
+
+/* Secure sign-in gate: dashboard remains hidden until server-verified Owner role. */
+body:not(.owner-authenticated) .shell,body:not(.owner-authenticated) .nav{display:none!important}
+.auth-gate{min-height:100svh;display:grid;place-items:center;padding:24px 16px;background:radial-gradient(ellipse at 80% -10%,#1b3850 0,transparent 42%),var(--bg)}
+.auth-card{width:min(100%,430px);background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:0 18px 60px #0005}
+.auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}.auth-logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#7be4c3,#3988a5);display:grid;place-items:center;color:#08202a;font-weight:900;font-size:20px}
+.auth-card h1{font-size:21px;margin:0 0 5px}.auth-card p{color:var(--muted);font-size:13px;line-height:1.5}.auth-card label{display:block;font-size:12px;color:#cbd7e8;margin:14px 0 6px}.auth-card input{width:100%;padding:13px;border:1px solid var(--line);border-radius:11px;background:#0b1424;color:var(--text);font:inherit}.auth-card button{width:100%;padding:13px;border:0;border-radius:11px;background:var(--accent);color:#08231e;font-weight:750;font:inherit;margin-top:16px}.auth-card button:disabled{opacity:.45}.auth-status{margin-top:13px;padding:11px;border-radius:10px;background:#0b1424;color:#d7e3f4;font-size:12px;line-height:1.5}.auth-status.error{color:#ffd1c9;border:1px solid #71443f}.auth-foot{font-size:11px!important;margin-top:18px}
 </style>
 </head>
-<body>
+<body><section class="auth-gate" id="owner-auth-gate" aria-labelledby="owner-auth-title"><div class="auth-card"><div class="auth-brand"><div class="auth-logo">LP</div><div><div class="eyebrow">La Princesa Aquaspin</div><div class="eyebrow">Secure Owner Access</div></div></div><h1 id="owner-auth-title">Owner POS Login</h1><p>Para lamang sa Owner account. Kailangang ma-verify sa server ang Owner role bago buksan ang monitoring dashboard.</p><form id="owner-login-form"><label for="owner-identity">Owner username o email</label><input id="owner-identity" name="identity" autocomplete="username" required><label for="owner-password">Password</label><input id="owner-password" name="password" type="password" autocomplete="current-password" required><button id="owner-login-button" type="submit" disabled>Login unavailable — setup needed</button></form><div class="auth-status" id="owner-auth-status" role="status" aria-live="polite">Hindi pa naka-configure ang verified Firebase project. Hindi muna papayagan ang login hangga't hindi ito naitatakda.</div><p class="auth-foot">Read-only Owner access · Walang Staff POS write controls · Walang demo account</p></div></section>
+
 <div class="shell">
 <header><div class="brand"><div class="logo">LP</div><div><div class="eyebrow">La Princesa Aquaspin</div><h1>Owner POS</h1></div></div><span class="mode">READ ONLY</span></header>
 <div class="notice" role="status"><strong>Hindi pa konektado sa live POS data</strong>Preview ng Owner App ito. Hindi pa naka-configure at nabe-verify ang cloud database at owner login. Walang totoong sales o customer records na ipinapakita rito.</div>
@@ -84,5 +92,24 @@ document.querySelectorAll('.nav button').forEach(button=>button.addEventListener
  window.scrollTo({top:0,behavior:'smooth'});
 }));
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+</script>
+
+<script src="./firebase-config.js"></script>
+<script type="module">
+const gate=document.getElementById('owner-auth-gate'),form=document.getElementById('owner-login-form'),button=document.getElementById('owner-login-button'),status=document.getElementById('owner-auth-status');
+const config=window.LP_OWNER_FIREBASE_CONFIG;
+const configured=!!(config&&config.apiKey&&config.authDomain&&config.projectId&&config.appId);
+let auth=null,firestore=null,authApi=null,firestoreApi=null;
+function say(message,isError=false){status.textContent=message;status.classList.toggle('error',isError)}
+function normalizeIdentity(value){const v=String(value||'').trim().toLowerCase();return v.includes('@')?v:v.replace(/\\s+/g,'')+'@laprincesa-pos.app'}
+async function verifyOwner(user){if(!user||!firestore||!firestoreApi)return false;const ref=firestoreApi.doc(firestore,'roles',user.uid);const snap=await firestoreApi.getDocFromServer(ref);return snap.exists()&&snap.data().role==='owner'}
+if(configured){
+ try{
+  const [appApi,authModule,dbModule]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js')]);
+  const app=appApi.initializeApp(config,'lp-owner-ios');auth=authModule.getAuth(app);firestore=dbModule.getFirestore(app);authApi=authModule;firestoreApi=dbModule;button.disabled=false;button.textContent='Secure Owner Login';say('Firebase configuration loaded. Mag-login gamit ang Owner account. Server verification ang gagamitin; hindi sapat ang cached role.');
+  authModule.onAuthStateChanged(auth,async user=>{if(!user){document.body.classList.remove('owner-authenticated');gate.hidden=false;return}try{if(await verifyOwner(user)){document.body.classList.add('owner-authenticated');gate.hidden=true}else{await authModule.signOut(auth);say('Walang Owner permission ang account na ito. Access denied.',true)}}catch(e){await authModule.signOut(auth);say('Hindi ma-verify ang Owner role mula sa server. Access denied; subukan kapag online at tama ang database rules.',true)}});
+ }catch(e){say('Hindi ma-initialize ang Firebase. Suriin ang public web configuration at internet connection.',true)}
+}
+form.addEventListener('submit',async event=>{event.preventDefault();if(!configured||!auth||!authApi){say('Hindi pa configured ang Firebase project. Hindi pinapayagan ang login.',true);return}button.disabled=true;say('Sinusuri ang login at Owner permission…');try{await authApi.setPersistence(auth,authApi.browserLocalPersistence);await authApi.signInWithEmailAndPassword(auth,normalizeIdentity(document.getElementById('owner-identity').value),document.getElementById('owner-password').value);say('Naka-login. Hinihintay ang server verification ng Owner role…')}catch(e){say(e.code==='auth/invalid-credential'?'Mali ang username/email o password.':'Hindi makapag-login: '+(e.code||'network error')+'.',true)}finally{button.disabled=false}});
 </script>
 </body></html>
