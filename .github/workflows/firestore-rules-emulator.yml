@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - shared-db-android-bridge-dev
+      - owner-monitoring-staging
     paths:
       - "firestore.rules"
       - "firebase.json"
