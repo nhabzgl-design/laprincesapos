@@ -3245,7 +3245,7 @@ function clean(k,v){if(!Array.isArray(v))return v;var ids={orders_v2:['o1','o2',
 if(!rawGet.call(localStorage,migration)){var legacy=[];for(var i=0;i<localStorage.length;i++){var k=rawKey.call(localStorage,i);if(k&&k.indexOf(P)===0&&k.indexOf('__lp_owner_')!==0)legacy.push(k)}legacy.forEach(function(k){var target=physical+k;if(rawGet.call(localStorage,target)!==null)return;var raw=rawGet.call(localStorage,k);if(raw===null)return;try{rawSet.call(localStorage,target,JSON.stringify(clean(k,JSON.parse(raw))))}catch(e){rawSet.call(localStorage,target,raw)}});rawSet.call(localStorage,migration,'1')}
 function scoped(k){return typeof k==='string'&&k.indexOf(P)===0?physical+k:k}
 Storage.prototype.getItem=function(k){if(this===localStorage&&typeof k==='string'&&k.indexOf(P)===0)return rawGet.call(this,scoped(k));return rawGet.apply(this,arguments)};
-Storage.prototype.setItem=function(k,v){if(this===localStorage&&typeof k==='string'&&k.indexOf(P)===0)return rawSet.call(this,scoped(k),v);return rawSet.apply(this,arguments)};
+Storage.prototype.setItem=function(k,v){if(this===localStorage&&typeof k==='string'&&k.indexOf(P)===0){var r=rawSet.call(this,scoped(k),v);try{if(window.LPCloud&&typeof window.LPCloud.localChanged==='function')window.LPCloud.localChanged(k)}catch(e){}return r}return rawSet.apply(this,arguments)};
 Storage.prototype.removeItem=function(k){if(this===localStorage&&typeof k==='string'&&k.indexOf(P)===0)return rawRemove.call(this,scoped(k));return rawRemove.apply(this,arguments)};
 Storage.prototype.key=function(i){var k=rawKey.call(this,i);if(this!==localStorage||!k)return k;if(k.indexOf(physical)===0)return k.slice(physical.length);if(k.indexOf('__lp_owner_')===0||k.indexOf(P)===0)return null;return k};
 })();
@@ -3656,6 +3656,7 @@ L.watch=function(){
  });
 };
 function schedule(k){dirty[k]=1;clearTimeout(tm);tm=setTimeout(flush,1200);status()}
+L.localChanged=function(k){if(ready&&roleName!=='owner'&&typeof k==='string'&&k.indexOf(P)===0)schedule(k)};
 function flush(){
  if(!ready)return;
  var ks=Object.keys(dirty);dirty={};if(!ks.length)return;
@@ -3709,7 +3710,7 @@ L.wipe=function(keep){
  }).then(function(){last={};dirty={}});
 };
 L.flushNow=function(){if(roleName==='owner')return Promise.resolve();flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
-L.syncNow=function(){return L.hydrate()};
+L.syncNow=function(){return L.hydrate().then(function(r){if(roleName==='owner')return r;keys().forEach(function(k){if(k.indexOf(P)===0)schedule(k)});flush();return Promise.race([Promise.all(inflight),new Promise(function(resolve){setTimeout(resolve,10000)})]).then(function(){return r})})};
 L.users=function(){return L.load().then(function(m){var F=m.F;return F.getDocs(F.collection(db,'roles')).then(function(s){var a=[];s.forEach(function(d){var x=d.data();a.push({uid:d.id,username:x.name||x.username||'?',role:x.role})});return a})})};
 L.addStaff=function(username,pw){
  var u=String(username).trim().toLowerCase();
