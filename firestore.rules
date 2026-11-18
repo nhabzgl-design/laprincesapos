@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function rolePath(uid) {
+      return /databases/$(database)/documents/roles/$(uid);
+    }
+
+    function hasValidRole() {
+      return signedIn()
+        && exists(rolePath(request.auth.uid))
+        && get(rolePath(request.auth.uid)).data.role in ['owner', 'staff'];
+    }
+
+    function isOwner() {
+      return signedIn()
+        && exists(rolePath(request.auth.uid))
+        && get(rolePath(request.auth.uid)).data.role == 'owner';
+    }
+
+    // The first Owner role must be created manually by the Firebase project
+    // administrator after creating the Owner's Firebase Authentication user.
+    // Never permit an arbitrary first authenticated user to claim Owner.
+    match /roles/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isOwner());
+      allow list: if isOwner();
+      allow create: if isOwner()
+        && request.resource.data.role == 'staff';
+      allow update: if isOwner()
+        && resource.data.role == 'staff'
+        && request.resource.data.role == 'staff';
+      allow delete: if isOwner()
+        && resource.data.role == 'staff';
+    }
+
+    // The existing POS stores its synchronized localStorage records as
+    // documents in this collection, including ~p0, ~p1... chunk documents.
+    // Staff and Owner both need access for normal POS operations.
+    match /data/{documentId} {
+      allow read, write: if hasValidRole();
+    }
+
+    // No client-side bootstrap or direct writes to the legacy owner marker.
+    match /meta/{documentId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
