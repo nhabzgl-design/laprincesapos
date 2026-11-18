@@ -52,13 +52,15 @@ test("unauthenticated users cannot read or write POS data", async () => {
   await assertFails(setDoc(doc(db, "data", "unauthorized"), { value: true }));
 });
 
-test("Owner can read and write shared POS data", async () => {
+test("Owner can read shared POS data but cannot write operational records", async () => {
   const db = env.authenticatedContext("owner-uid", {
     email: "owner@example.com"
   }).firestore();
 
   await assertSucceeds(getDoc(doc(db, "data", "sample")));
-  await assertSucceeds(setDoc(doc(db, "data", "owner-write"), { value: 1 }));
+  await assertFails(setDoc(doc(db, "data", "owner-write"), { value: 1 }));
+  await assertFails(updateDoc(doc(db, "data", "sample"), { total: 200 }));
+  await assertFails(deleteDoc(doc(db, "data", "sample")));
 });
 
 test("Staff can read and write shared POS data", async () => {
