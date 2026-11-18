@@ -78,6 +78,10 @@ test("Staff can read and write shared POS data", async () => {
 
   await assertSucceeds(getDoc(doc(db, "data", "sample")));
   await assertSucceeds(setDoc(doc(db, "data", "staff-write"), { value: 2 }));
+  await assertFails(deleteDoc(doc(db, "data", "laPrincesa_orders_v2")));
+  await assertFails(deleteDoc(doc(db, "data", "laPrincesa_inventory_v2")));
+  await assertFails(deleteDoc(doc(db, "data", "laPrincesa_deleted_orders_v1")));
+  await assertFails(deleteDoc(doc(db, "data", "laPrincesa_activity_log_v1")));
 });
 
 test("users without a provisioned role cannot access POS data", async () => {
