@@ -62,7 +62,7 @@ function setText(id,v){$(id).textContent=v}
 function render(){
  const orders=arr('orders_v2').filter(x=>x&&!x.deletedAt),expenses=arr('expenses_v2'),inventory=arr('inventory_v2'),customers=arr('customers_v2');
  const paid=orders.filter(x=>fin(x).status==='Paid'),todayPaid=paid.filter(x=>day(paidAt(x)));
- const todayNet=todayPaid.reduce((s,x)=>s+fin(x).total-(Number(x.discount)||0)-fin(x).refunded,0);
+ const todayNet=todayPaid.reduce((s,x)=>s+fin(x).total-fin(x).refunded,0);
  const todayCollections=orders.reduce((s,x)=>s+(Array.isArray(x.payments)?x.payments:fin(x).collected>0?[{amount:fin(x).collected,at:x.date}]:[]).reduce((z,p)=>z+(day(p.at)?Number(p.amount)||0:0),0),0);
  const todayExpenses=expenses.filter(x=>day(x.date)).reduce((s,x)=>s+(Number(x.amount)||0),0);
  const balance=orders.reduce((s,x)=>s+fin(x).balance,0);
