@@ -53,7 +53,8 @@ service cloud.firestore {
     match /data/{documentId} {
       allow read: if hasValidRole();
       allow create, update: if isStaff();
-      allow delete: if isStaff() || (isOwner() && isClearableOperationalDoc(documentId));
+      allow delete: if (isStaff() && !isClearableOperationalDoc(documentId))
+        || (isOwner() && isClearableOperationalDoc(documentId));
     }
 
     // No client-side bootstrap or direct writes to the legacy owner marker.
