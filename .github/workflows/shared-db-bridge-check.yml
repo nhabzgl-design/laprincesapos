@@ -11,6 +11,7 @@ on:
       - "firestore.rules"
       - "FIREBASE-SHARED-DATABASE-SETUP.md"
       - ".github/workflows/shared-db-bridge-check.yml"
+      - ".github/workflows/build-apk.yml"
   pull_request:
     paths:
       - "index.html"
@@ -89,5 +90,7 @@ jobs:
           grep -q "onSnapshot" index.html
           grep -q "role!=='owner'&&d.role!=='staff'" index.html
           grep -q "firebase-config.js" index.html
+          grep -q "cp firebase-config.js app/src/main/assets/firebase-config.js" .github/workflows/build-apk.yml
+          grep -q "test -s app/src/main/assets/firebase-config.js" .github/workflows/build-apk.yml
           grep -q "printHtmlBase64" index.html
           echo "PWA, Firestore bridge, role check, and printer hook checks passed."
