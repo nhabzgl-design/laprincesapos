@@ -21,6 +21,12 @@ service cloud.firestore {
         && get(rolePath(request.auth.uid)).data.role == 'owner';
     }
 
+    function isStaff() {
+      return signedIn()
+        && exists(rolePath(request.auth.uid))
+        && get(rolePath(request.auth.uid)).data.role == 'staff';
+    }
+
     // The first Owner role must be created manually by the Firebase project
     // administrator after creating the Owner's Firebase Authentication user.
     // Never permit an arbitrary first authenticated user to claim Owner.
@@ -38,9 +44,11 @@ service cloud.firestore {
 
     // The existing POS stores its synchronized localStorage records as
     // documents in this collection, including ~p0, ~p1... chunk documents.
-    // Staff and Owner both need access for normal POS operations.
+    // Owner iOS is monitoring-only. Staff Android performs operational writes.
+    // Owners can read shared records but cannot create, change, or delete them.
     match /data/{documentId} {
-      allow read, write: if hasValidRole();
+      allow read: if hasValidRole();
+      allow create, update, delete: if isStaff();
     }
 
     // No client-side bootstrap or direct writes to the legacy owner marker.
