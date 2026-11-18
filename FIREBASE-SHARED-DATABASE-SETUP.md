@@ -8,7 +8,9 @@ This is the setup plan for the Android Staff POS and iOS Owner PWA. The checked-
 - The file now contains the confirmed public Web App configuration for project `laprincesa-pos`.
 - The Android cloud module uses the existing Firestore collection `data` and document IDs based on `laPrincesa_*` localStorage keys. Large values use `~p0`, `~p1`, etc.
 - A Firestore snapshot listener now applies remote data changes and remote record deletions to localStorage (the Machines key is preserved). When remote data changes, the POS shows a cloud status prompt; tap it to reload the visible screen and display the newly synced data. This avoids silently refreshing while a cashier may be editing a transaction.
-- The Android cloud login now requires a server-provisioned `roles/{uid}` document with role `owner` or `staff`. It no longer lets the first person to sign in claim Owner and no longer trusts a cached local role after server errors.
+- The Android Staff POS cloud login requires a server-provisioned `roles/{uid}` document with role `owner` or `staff`. It no longer lets the first person to sign in claim Owner and no longer trusts a cached local role after server errors.
+- A separate `owner.html` PWA is being added for iPhone Owner monitoring. It signs in through Firebase Auth, verifies the UID-bound Owner role and matching email, and subscribes to Firestore read-only. It has no order-entry, printer, or cash-drawer controls.
+- The development Firestore rules now permit Owner reads but restrict operational `data` writes to Staff accounts. Owner role management remains limited to Staff role documents.
 - Firebase project configuration, Email/Password Auth setup, the `(default)` Firestore database, and the manually created Owner role document were confirmed by the project administrator in the Firebase Console. The rules remain undeployed; do not turn on cloud mode until the rules are reviewed, tested, and deployed.
 
 ## Required Firebase project configuration
@@ -62,9 +64,9 @@ Do not let multiple devices perform first-time migration simultaneously. The exi
 
 ## Firestore rules draft
 
-The accompanying `firestore.rules` is a starting point, not a verified production ruleset. It grants authenticated Owner/Staff accounts access to the shared `data` collection because the current app stores POS data in that one collection. It protects the `roles` collection so only Owner can manage Staff roles, and the first Owner must be manually provisioned.
+The accompanying `firestore.rules` is a development ruleset, not yet a production deployment. It allows provisioned Owner and Staff accounts to read the shared `data` collection, but only Staff accounts can create, update, or delete operational data. It protects the `roles` collection so only Owner can manage Staff roles, and the first Owner must be manually provisioned.
 
-Important limitation: because the current data model puts multiple POS settings and business records in the same `data` collection, the rules cannot distinguish every Owner-only field from Staff-editable fields. The app's existing UI role checks still apply. A stronger per-feature authorization model would require a separate schema/backend change and must be planned without breaking Android workflows.
+Important limitation: the existing shared `data` collection still combines multiple settings and business records. The current rule is intentionally broad for Staff writes so the Android POS can continue operating; it does not yet provide fine-grained per-feature Staff permissions. The Owner PWA is a separate read-only page, and the Firestore rules independently prevent Owner writes to operational data.
 
 ## Do not release yet
 
