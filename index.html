@@ -3530,7 +3530,7 @@ L.role=function(user){
    if(!s.exists())return null;
    var d=s.data();
    if(!d||d.role!=='owner'&&d.role!=='staff')return null;
-   var r={role:d.role,username:d.username||user.email||'user'};
+   var r={role:d.role,username:d.name||d.username||user.email||'user'};
    who=r.username;
    return r;
   });
@@ -3701,7 +3701,7 @@ L.wipe=function(keep){
 };
 L.flushNow=function(){flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
 L.syncNow=function(){return L.hydrate()};
-L.users=function(){return L.load().then(function(m){var F=m.F;return F.getDocs(F.collection(db,'roles')).then(function(s){var a=[];s.forEach(function(d){var x=d.data();a.push({uid:d.id,username:x.username||'?',role:x.role})});return a})})};
+L.users=function(){return L.load().then(function(m){var F=m.F;return F.getDocs(F.collection(db,'roles')).then(function(s){var a=[];s.forEach(function(d){var x=d.data();a.push({uid:d.id,username:x.name||x.username||'?',role:x.role})});return a})})};
 L.addStaff=function(username,pw){
  var u=String(username).trim().toLowerCase();
  if(!/^[a-z0-9._-]{3,30}$/.test(u))return Promise.reject({code:'lp/badname'});
