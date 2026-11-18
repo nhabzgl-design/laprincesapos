@@ -31,18 +31,18 @@ Enable:
 
 ## Owner account provisioning
 
-The POS converts a username without an `@` into an email in the form `username@laprincesa-pos.app`. Create the Owner's Firebase Authentication user with the email address that the Owner will enter at login. The current login code accepts a full email address as-is; if the Owner enters only a username, it converts it to `username@laprincesa-pos.app`. Since the provisioned Owner account currently uses `nhabzgl@gmail.com`, sign in by entering the full email `nhabzgl@gmail.com` (not username-only) unless the Auth account email is deliberately changed later.
+The Owner must sign in using the email address registered for the Owner's own Firebase Authentication account. A full email address is accepted as-is. A username without `@` is converted to `username@laprincesa-pos.app`, so use the full email when the Auth account uses a different domain.
 
-After creating the Auth user, copy its UID and manually create this Firestore document:
+After creating the Owner Auth user, copy its UID and manually create this Firestore document:
 
 - Collection: `roles`
 - Document ID: the Owner Auth UID
 - Fields:
   - `role`: `owner`
-  - `username`: the Owner's POS username
-  - `email`: the Auth email
+  - `name`: the Owner's real display name (for example, `Sheena Marie Cuizon`)
+  - `email`: the same email as the Auth account
 
-Do not create a public client-side first-owner bootstrap. Once the Owner can sign in, the Owner POS can add Staff accounts through its existing account-management workflow.
+The app now prefers `name` for the displayed Owner identity, with `username` retained as a backwards-compatible fallback. Do not create a public client-side first-owner bootstrap. Once the Owner can sign in, the Owner POS can add Staff accounts through its existing account-management workflow.
 
 ## Safe first-data migration
 
