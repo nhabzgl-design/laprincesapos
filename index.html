@@ -3487,10 +3487,11 @@ window.openSettings=function(){close();var o=document.createElement('div');o.id=
 })();
 </script>
 <script id="lp-pwa">if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})})}</script>
+<script src="./firebase-config.js"></script>
 <script id="lp-firebase-config">
-/* ILAGAY DITO ANG firebaseConfig MULA SA FIREBASE CONSOLE.
-   Kapag walang laman ang apiKey at projectId, local login lang ang gagamitin (walang online database). */
-window.LP_FIREBASE={apiKey:"",authDomain:"",projectId:"",storageBucket:"",messagingSenderId:"",appId:""};
+/* Ang firebase-config.js ay public Web App config lamang.
+   Kapag blanko ang apiKey/projectId, local mode pa rin ang gagamitin. */
+window.LP_FIREBASE=window.LP_FIREBASE||{apiKey:"",authDomain:"",projectId:"",storageBucket:"",messagingSenderId:"",appId:""};
 </script>
 <script id="lp-cloud">
 (function(){
@@ -3498,7 +3499,7 @@ var C=window.LP_FIREBASE||{};
 var L=window.LPCloud={enabled:!!(C.apiKey&&C.projectId)};
 if(!L.enabled)return;
 var B='https://www.gstatic.com/firebasejs/10.14.1/',P='laPrincesa_',CH=200000;
-var origSet=Storage.prototype.setItem,M=null,app,auth,db,ready=false,who='',pend=0,last={},dirty={},tm=null,badge=null,inflight=[];
+var origSet=Storage.prototype.setItem,M=null,app,auth,db,ready=false,who='',pend=0,last={},dirty={},writing={},tm=null,badge=null,inflight=[],unsub=null,remotePending=false;
 function keys(){var k=[];for(var i=0;i<localStorage.length;i++){var n=localStorage.key(i);if(n&&n.indexOf(P)===0)k.push(n)}return k}
 function toEmail(u){u=String(u).trim().toLowerCase();return u.indexOf('@')>0?u:u.replace(/\s+/g,'')+'@laprincesa-pos.app'}
 L.toEmail=toEmail;
@@ -3598,8 +3599,47 @@ L.hydrate=function(){
    }
    keys().forEach(function(k){if(!(k in main))dirty[k]=1});
    ready=true;flush();status();
+   L.watch().catch(function(){status('err')});
    return{changed:changed,migrated:!ids.length};
   });
+ });
+};
+L.watch=function(){
+ return L.load().then(function(m){
+  if(unsub){unsub();unsub=null}
+  var F=m.F;
+  unsub=F.onSnapshot(F.collection(db,'data'),function(snap){
+   var main={},parts={},remote={},changed=[];
+   snap.forEach(function(d){
+    var id=d.id,i=id.indexOf('~p');
+    if(i<0)main[id]=d.data();
+    else{var k=id.slice(0,i);(parts[k]=parts[k]||{})[+id.slice(i+2)]=d.data().s}
+   });
+   Object.keys(main).forEach(function(k){
+    var d=main[k],v;
+    if(d.parts>0){
+     v='';
+     for(var i=0;i<d.parts;i++){
+      var part=(parts[k]||{})[i];
+      if(typeof part!=='string'){v=null;break}
+      v+=part;
+     }
+    }else v=d.v;
+    if(typeof v==='string')remote[k]=v;
+   });
+   Object.keys(remote).forEach(function(k){
+    var v=remote[k];
+    if(dirty[k]||writing[k])return;
+    var cur=localStorage.getItem(k);
+    last[k]=v;
+    if(cur!==v){
+     origSet.call(localStorage,k,v);
+     changed.push(k);
+    }
+   });
+   if(changed.length){remotePending=true;status()}
+  },function(){status('err')});
+  return true;
  });
 };
 function schedule(k){dirty[k]=1;clearTimeout(tm);tm=setTimeout(flush,1200);status()}
@@ -3607,17 +3647,22 @@ function flush(){
  if(!ready)return;
  var ks=Object.keys(dirty);dirty={};if(!ks.length)return;
  var p=L.load().then(function(m){
-  var F=m.F,b=F.writeBatch(db),n=0;
+  var F=m.F,b=F.writeBatch(db),n=0,writeKeys=[];
   ks.forEach(function(k){
    var v=localStorage.getItem(k);if(v==null||last[k]===v)return;
-   last[k]=v;n++;
+   last[k]=v;n++;writeKeys.push(k);
    var ref=F.doc(db,'data',k);
    if(v.length<=CH)b.set(ref,{v:v,parts:0,t:Date.now(),by:who});
    else{var c=Math.ceil(v.length/CH);b.set(ref,{parts:c,t:Date.now(),by:who});for(var i=0;i<c;i++)b.set(F.doc(db,'data',k+'~p'+i),{s:v.slice(i*CH,(i+1)*CH)})}
   });
   if(!n)return;
+  writeKeys.forEach(function(k){writing[k]=1});
   pend++;status();
-  return b.commit().then(function(){pend--;status()},function(e){
+  return b.commit().then(function(){
+   writeKeys.forEach(function(k){delete writing[k]});
+   pend--;status()
+  },function(e){
+   writeKeys.forEach(function(k){delete writing[k]});
    pend--;ks.forEach(function(k){delete last[k];dirty[k]=1});status('err');clearTimeout(tm);tm=setTimeout(flush,15000);
   });
  });
@@ -3631,8 +3676,10 @@ Storage.prototype.setItem=function(k){
 function status(e){
  if(!badge){badge=document.createElement('div');badge.id='lp-badge';(document.body||document.documentElement).appendChild(badge)}
  var off=!navigator.onLine,busy=pend>0||Object.keys(dirty).length>0;
- var t=e==='err'?'Hindi pa na-sync, uulitin':off?'Offline, isi-sync pagbalik ng net':busy?'Nagsi-sync...':'Naka-sync';
+ var t=remotePending?'May bagong update — pindutin para i-refresh':e==='err'?'Hindi pa na-sync, uulitin':off?'Offline, isi-sync pagbalik ng net':busy?'Nagsi-sync...':'Naka-sync';
  badge.textContent='\u2601 '+t;badge.className=(e==='err'||off)?'warn':'';
+ badge.style.cursor=remotePending?'pointer':'default';
+ badge.onclick=remotePending?function(){location.reload()}:null;
 }
 window.addEventListener('online',function(){if(ready)status()});
 window.addEventListener('offline',function(){if(ready)status()});
