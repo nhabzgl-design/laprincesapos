@@ -1,72 +1,43 @@
-# La Princesa iOS Owner Monitor
+# La Princesa iOS Owner POS
 
-Status: development PWA client. The iOS code now uses server-checked Owner role lookup and a read-only Firestore data reader; local/demo login and POS cloud-write APIs are disabled. Firebase config is intentionally blank, and deployed Firestore rules have not been verified. This is not production-ready yet.
+Status: development PWA; not yet connected to a verified live Firebase project and not production-ready.
 
 ## Product scope
 
-A separate iPhone-friendly, read-only Owner app for La Princesa POS. The shop Android POS remains the system of record and continues to handle all order creation, edits, voids, payments, inventory changes, staff management, receipts, Bluetooth printing, and cash-drawer actions.
+A separate iPhone-friendly Owner POS for the shop. It is intended to provide the Owner's full POS access using the same business records as the Android Staff POS. Android remains the Staff POS and its installed APK, source, printer bridge, receipt sequence, and cash-drawer behavior are out of scope for changes.
 
-### Owner can view
-- Live order list and order status
-- Customer directory and customer order history
-- Sales, collections, payment-method totals, and unpaid balances
-- Inventory and stock levels
-- Staff list and activity/logbook
-- Daily/monthly reports
+The iOS Owner app is not a read-only monitor. Owner access is intended to include the POS functions already exposed by the Owner role in the shared app: orders, payments, customers, inventory, services/products, expenses, shifts, reports, settings, and staff-account administration. Access must be granted only to an existing server-verified Owner account.
 
-### Owner cannot do
-- Create, edit, cancel, or void orders
-- Record or reverse payments
-- Change inventory, products, prices, staff, or settings
-- Trigger a receipt print or cash drawer
-- Upload or overwrite POS data
+## Important current limitations
 
-No camera, SMS integration, voice/video calling, or paid gateway is in scope.
+- `ios-owner/firebase-config.js` is intentionally blank. No verified Firebase project ID is available in the checked-in source.
+- The Android `main/index.html` also contains blank Firebase `apiKey` and `projectId` values. Repository source alone does not prove that the installed Android app is connected to Firestore.
+- The iOS client uses the existing Firestore `data` document format and the same `laPrincesa_*` localStorage keys. Its current cloud module performs an initial one-time Firestore read and uploads local changes. It does not yet have a verified continuous remote snapshot subscription; manual sync is not the same as real-time sync.
+- No Firestore rules file or verified deployed rules were found in the repository.
+- No Netlify deployment or real iPhone Safari test has been completed.
+- iOS browser printing and cash-drawer support must not be assumed to match Android native Bluetooth behavior. Android remains the hardware POS unless iOS hardware compatibility is separately tested.
 
-## Repository audit (2026-11-17)
+## Security change in this branch
 
-Cross-checked the checked-in POS `index.html` on `main`, `native-apk-fix`, `stable/apk-235-baseline`, and `fix/cash-drawer-before-receipt`.
+The iOS Owner role check now requires a server-read `roles/{uid}` document with `role == "owner"`. It no longer creates the first Owner from the iOS client and no longer accepts a cached local role after a failed server check. A missing role or failed server check denies access.
 
-- All four checked-in versions contain the Firebase Auth/Firestore cloud module, but `window.LP_FIREBASE` has empty `apiKey` and `projectId` values. In these source versions, the cloud module therefore stays disabled unless a different build/deployment injects configuration (no such injection was verified in the repository).
-- When enabled, the cloud module reads and writes documents in Firestore collection `data`, using POS localStorage keys prefixed `laPrincesa_`.
-- Initial hydration uses `getDocs(collection(db,'data'))`; the module does not register Firestore `onSnapshot` listeners. Its normal localStorage write interception uploads changes after a short debounce, but that is not a live remote-change subscription. The manual “Mag-sync ngayon” action performs another one-time hydrate.
-- The cloud module is not read-only: it uploads local POS state, has a cloud wipe path, and the role bootstrap can create the first owner role. Do not reuse this module as the iOS Owner client's data-access layer.
-- No Firestore Security Rules, Firebase project config file, or verified deployed rules were found in the checked-in repository. The real runtime Firebase project/configuration remains unverified.
-- Conclusion: repository source alone does not establish that the installed Android POS is currently syncing to a shared cloud database. Do not display live data or claim cross-device real-time sync until the actual runtime backend is verified.
-- Do not modify the Android POS, APK source, printer bridge, receipt-print sequence, or cash-drawer behavior as part of the iOS monitor work.
-
-## Current development files
-
-- `index.html`: iPhone-friendly Owner PWA. When the verified Firebase config is supplied, it authenticates, checks `roles/{uid}` from the server, and reads only the approved POS data keys from Firestore. The iOS client exposes no POS upload, wipe, staff-management, or transaction-write API.
-- `firebase-config.js`: intentionally blank until the exact Android Staff POS Firebase project is confirmed.
-- `FIREBASE-SETUP-CHECKLIST.md`: safe shared-project, Auth, Firestore rules, and testing steps.
-- `NETLIFY-DEPLOY-CHECKLIST.md`: isolated Netlify draft deployment settings.
-- `manifest.webmanifest`, `sw.js`, and `icon.svg`: installable PWA shell assets.
-- The client intentionally shows no sample sales/customer/order data and stays locked while Firebase config is blank. Once connected, it reads approved documents from Firestore `data` through a snapshot listener and refreshes the view when records change. Client-side read-only code is not a substitute for Firestore Security Rules: the deployed rules must independently deny Owner writes before release. This is still a development build, not a production/live service.
+This client-side check is not a replacement for Firestore Security Rules. Rules must preserve existing Android Staff access and permit the verified Owner to perform only the intended Owner operations.
 
 ## Safe implementation sequence
 
-1. Confirm the actual Firebase project used by the live Android POS and verify that the shop device is successfully syncing orders to it. Do not ask the user to paste private service-account keys.
-2. Confirm the Firestore document schema and the exact owner authentication identity. Do not infer that a Firebase project is active merely because an old Supabase project exists.
-3. Add restrictive Firestore Security Rules: the iOS owner identity may read only the required POS data; it may not create, update, or delete any POS data. Staff and shop permissions must remain unchanged.
-4. Add a separate iOS-friendly web/PWA client under this directory. Use Firebase Auth and Firestore listeners for real-time read-only display; do not write to the POS data collection.
-5. Test using a separate test owner account and test data. Verify denied writes, data visibility, reconnect behavior, and no effect on Android printing/cash-drawer behavior.
-6. Only after the PWA is proven stable, assess whether a native iOS wrapper is needed. Native iOS distribution/signing is a separate step and may require Apple developer tooling and account setup.
+1. Verify the exact Firebase project actually used by the installed Android Staff POS and confirm that its current orders are present in Firestore `data`.
+2. Verify the existing Owner Firebase Auth account and its server-side `roles/{uid}` document.
+3. Inspect and back up the currently deployed Firestore rules before changing anything. Do not deploy guessed rules over a live Staff POS.
+4. Confirm the existing Firestore data format, chunk documents, and write permissions. Preserve the Android app's current write paths.
+5. Finish and test the iOS Owner POS against a non-production/test dataset, including Owner-only login, CRUD operations, staff administration, and data reconciliation.
+6. Add and test safe remote-change synchronization. Avoid claiming real-time sync until remote changes are observed on the iPhone without manual refresh and concurrent edits have been tested.
+7. Configure a separate Netlify draft site using branch `ios-owner-monitoring-dev` and publish directory `ios-owner`. Do not replace the Staff POS site.
+8. Test on iPhone Safari and install to Home Screen. Confirm offline/stale state is clearly shown.
 
-## Free-tier guardrails
+## Non-negotiable protections
 
-- Keep the Firebase project on the no-cost Spark plan. Do not enable billing or attach a payment method for this project.
-- Design around the currently applicable free quotas and handle quota exhaustion as a visible sync-unavailable state, never by silently enabling paid services.
-- Do not add camera streaming, TURN servers, paid SMS, paid push services, or other metered providers.
-- Verify current Firebase quota terms before release; quotas and product terms can change.
-
-## Release gates
-
-- [ ] Live Android POS cloud sync verified against the correct Firebase project
-- [ ] Firestore Security Rules reviewed and tested (read allowed, all owner writes denied)
-- [ ] Owner login works with an explicitly provisioned owner account
-- [ ] Orders, customers, payments, inventory, reports, and activity views match Android records
-- [ ] Real-time listener and reconnect behavior tested
-- [ ] Free-tier usage and quota-exhaustion behavior tested
-- [ ] Android APK source, printer bridge, receipt sequence, and cash-drawer trigger unchanged
-- [ ] User approves any production deployment or merge
+- Do not modify the Android `main` branch or its APK workflow for this iOS work.
+- Do not change the printer bridge, receipt-print order, or cash-drawer trigger in Android.
+- Do not merge PR #30 or publish a production Netlify site without explicit approval.
+- Never put Firebase service-account JSON, Admin SDK credentials, private keys, or user passwords in this repository.
+- Never claim that the apps share live data until the actual runtime Firebase project and successful cross-device tests are verified.
