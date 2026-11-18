@@ -95,7 +95,7 @@ function showApp(name){$('login').hidden=true;$('app').hidden=false;$('logout').
 function showLogin(msg=''){$('login').hidden=false;$('app').hidden=true;$('logout').hidden=true;$('refresh').hidden=true;setText('loginError',msg)}
 $('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('signIn').disabled=true;setText('loginError','Signing in…');try{const c=await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);const role=await verifyOwner(c.user);userRole=role;showApp(role.name||'Sheena Marie Cuizon');startWatch()}catch(err){await signOut(auth).catch(()=>{});showLogin(err.message||'Hindi makapag-login.')}finally{$('signIn').disabled=false;$('password').value=''}});
 $('logout').onclick=async()=>{if(unsubscribe)unsubscribe();unsubscribe=null;await signOut(auth);showLogin()};
-$('refresh').onclick=()=>{setText('syncText','Refreshing…');$('dot').className='dot off';};
+$('refresh').onclick=()=>{setText('syncText','Refreshing…');$('dot').className='dot off';startWatch();};
 if(!cfg.apiKey||!cfg.projectId){showLogin('Hindi pa naka-configure ang Firebase.');}else{app=initializeApp(cfg);auth=getAuth(app);db=getFirestore(app);onAuthStateChanged(auth,async u=>{if(!u)return;try{const role=await verifyOwner(u);userRole=role;showApp(role.name||'Owner');startWatch()}catch(e){await signOut(auth);showLogin(e.message)}})}
 </script>
 </body></html>
