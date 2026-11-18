@@ -42,13 +42,30 @@ service cloud.firestore {
         && resource.data.role == 'staff';
     }
 
-    // The existing POS stores its synchronized localStorage records as
-    // documents in this collection, including ~p0, ~p1... chunk documents.
-    // Owner iOS is monitoring-only. Staff Android performs operational writes.
-    // Owners can read shared records but cannot create, change, or delete them.
+    // Only these four operational data documents (and their chunk documents)
+    // may be deleted by the Owner's explicit Clear Data action.
+    function isClearableOperationalDoc(documentId) {
+      return documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)(~p[0-9]+)?
+
+    // No client-side bootstrap or direct writes to the legacy owner marker.
+    match /meta/{documentId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+);
+    }
+
+    // Staff retain operational write access. Owner remains read-only except
+    // for deleting the four explicitly approved data categories above.
     match /data/{documentId} {
       allow read: if hasValidRole();
-      allow create, update, delete: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isStaff() || (isOwner() && isClearableOperationalDoc(documentId));
     }
 
     // No client-side bootstrap or direct writes to the legacy owner marker.
