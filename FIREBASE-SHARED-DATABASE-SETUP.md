@@ -7,7 +7,7 @@ This is the setup plan for the Android Staff POS and iOS Owner PWA. The checked-
 - Android source now loads the public Firebase Web App config from `firebase-config.js`.
 - The file intentionally has blank values until the exact La Princesa Firebase project is confirmed.
 - The Android cloud module uses the existing Firestore collection `data` and document IDs based on `laPrincesa_*` localStorage keys. Large values use `~p0`, `~p1`, etc.
-- A Firestore snapshot listener now applies remote data changes to localStorage. When remote data changes, the POS shows a cloud status prompt; tap it to reload the visible screen and display the newly synced data. This avoids silently refreshing while a cashier may be editing a transaction.
+- A Firestore snapshot listener now applies remote data changes and remote record deletions to localStorage (the Machines key is preserved). When remote data changes, the POS shows a cloud status prompt; tap it to reload the visible screen and display the newly synced data. This avoids silently refreshing while a cashier may be editing a transaction.
 - The Android cloud login now requires a server-provisioned `roles/{uid}` document with role `owner` or `staff`. It no longer lets the first person to sign in claim Owner and no longer trusts a cached local role after server errors.
 - No Firebase project, deployed rules, Auth users, or Firestore data were verified from the repository. Do not turn on cloud mode until these are configured.
 
