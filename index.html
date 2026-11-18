@@ -3499,7 +3499,7 @@ var C=window.LP_FIREBASE||{};
 var L=window.LPCloud={enabled:!!(C.apiKey&&C.projectId)};
 if(!L.enabled)return;
 var B='https://www.gstatic.com/firebasejs/10.14.1/',P='laPrincesa_',CH=200000;
-var origSet=Storage.prototype.setItem,M=null,app,auth,db,ready=false,who='',pend=0,last={},dirty={},writing={},tm=null,badge=null,inflight=[],unsub=null,remotePending=false;
+var origSet=Storage.prototype.setItem,origRemove=Storage.prototype.removeItem,M=null,app,auth,db,ready=false,who='',pend=0,last={},dirty={},writing={},tm=null,badge=null,inflight=[],unsub=null,remotePending=false;
 function keys(){var k=[];for(var i=0;i<localStorage.length;i++){var n=localStorage.key(i);if(n&&n.indexOf(P)===0)k.push(n)}return k}
 function toEmail(u){u=String(u).trim().toLowerCase();return u.indexOf('@')>0?u:u.replace(/\s+/g,'')+'@laprincesa-pos.app'}
 L.toEmail=toEmail;
@@ -3605,7 +3605,10 @@ L.watch=function(){
   if(unsub){unsub();unsub=null}
   var F=m.F;
   unsub=F.onSnapshot(F.collection(db,'data'),function(snap){
-   var main={},parts={},remote={},changed=[];
+   var main={},parts={},remote={},changed=[],removed=[];
+   snap.docChanges().forEach(function(change){
+    if(change.type==='removed'&&change.doc.id.indexOf('~p')<0)removed.push(change.doc.id);
+   });
    snap.forEach(function(d){
     var id=d.id,i=id.indexOf('~p');
     if(i<0)main[id]=d.data();
@@ -3632,6 +3635,12 @@ L.watch=function(){
      origSet.call(localStorage,k,v);
      changed.push(k);
     }
+   });
+   removed.forEach(function(k){
+    if(k===P+'machines'||dirty[k]||writing[k])return;
+    origRemove.call(localStorage,k);
+    delete last[k];
+    changed.push(k);
    });
    if(changed.length){remotePending=true;status()}
   },function(){status('err')});
