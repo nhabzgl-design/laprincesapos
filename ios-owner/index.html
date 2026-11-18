@@ -3560,23 +3560,17 @@ L.signIn=function(id,pw,remember){
  }).then(function(c){return c.user});
 };
 L.role=function(user){
- var ck='lpmeta_role_'+user.uid;
+ /* Owner authorization must come from the server on every login.
+    Never bootstrap the first Owner from this client and never trust a cached role. */
  return L.load().then(function(m){
-  var F=m.F;
-  return F.getDoc(F.doc(db,'roles',user.uid)).then(function(s){
-   if(s.exists()){var d=s.data(),r={role:d.role,username:d.username||user.email};localStorage.setItem(ck,JSON.stringify(r));who=r.username;return r}
-   return F.getDoc(F.doc(db,'meta','owner')).then(function(o){
-    if(o.exists())return null;
-    var un=(user.email||'owner').split('@')[0],b=F.writeBatch(db);
-    b.set(F.doc(db,'meta','owner'),{uid:user.uid,t:Date.now()});
-    b.set(F.doc(db,'roles',user.uid),{role:'owner',username:un,email:user.email||''});
-    return b.commit().then(function(){var r={role:'owner',username:un};localStorage.setItem(ck,JSON.stringify(r));who=un;return r});
-   });
+  return m.F.getDoc(m.F.doc(db,'roles',user.uid)).then(function(s){
+   if(!s.exists())return null;
+   var d=s.data();
+   if(!d||d.role!=='owner')return null;
+   var r={role:'owner',username:d.username||user.email||'owner'};
+   who=r.username;
+   return r;
   });
- }).catch(function(e){
-  var c=null;try{c=JSON.parse(localStorage.getItem(ck))}catch(x){}
-  if(c&&(!e||e.code!=='permission-denied')){who=c.username;return c}
-  throw e;
  });
 };
 L.hydrate=function(){
