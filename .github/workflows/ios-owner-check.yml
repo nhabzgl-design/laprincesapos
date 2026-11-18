@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - ios-owner-monitoring-dev
+      - ios-owner-full-pos-dev
     paths:
       - "ios-owner/**"
       - ".github/workflows/ios-owner-check.yml"
@@ -47,8 +48,10 @@ jobs:
               def handle_starttag(self, tag, attrs):
                   if tag.lower() == "script":
                       attrs = dict(attrs)
+                      script_type = attrs.get("type", "").lower().strip()
+                      executable_types = ("", "text/javascript", "application/javascript", "module")
                       self.capture = True
-                      self.external = "src" in attrs
+                      self.external = "src" in attrs or script_type not in executable_types
                       self.parts = []
               def handle_data(self, data):
                   if self.capture and not self.external:
