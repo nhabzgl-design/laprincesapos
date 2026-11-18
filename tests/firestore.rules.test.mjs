@@ -52,7 +52,7 @@ test("unauthenticated users cannot read or write POS data", async () => {
   await assertFails(setDoc(doc(db, "data", "unauthorized"), { value: true }));
 });
 
-test("Owner can read shared POS data but cannot write operational records", async () => {
+test("Owner can read data and delete only the four approved Clear Data categories", async () => {
   const db = env.authenticatedContext("owner-uid", {
     email: "owner@example.com"
   }).firestore();
@@ -61,6 +61,14 @@ test("Owner can read shared POS data but cannot write operational records", asyn
   await assertFails(setDoc(doc(db, "data", "owner-write"), { value: 1 }));
   await assertFails(updateDoc(doc(db, "data", "sample"), { total: 200 }));
   await assertFails(deleteDoc(doc(db, "data", "sample")));
+  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_orders_v2")));
+  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_inventory_v2")));
+  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_deleted_orders_v1")));
+  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_activity_log_v1")));
+  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_orders_v2~p0")));
+  await assertFails(deleteDoc(doc(db, "data", "laPrincesa_customers_v2")));
+  await assertFails(deleteDoc(doc(db, "data", "laPrincesa_machines")));
+  await assertFails(deleteDoc(doc(db, "data", "laPrincesa_printer_mode_v1")));
 });
 
 test("Staff can read and write shared POS data", async () => {
