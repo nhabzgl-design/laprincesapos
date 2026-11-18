@@ -3551,9 +3551,10 @@ L.hydrate=function(){
    });
    // Owner devices hydrate from Firestore only. Never seed or reconcile cloud data from local Owner storage.
    if(roleName==='owner'){
-    Object.keys(remote).forEach(function(k){last[k]=remote[k];if(localStorage.getItem(k)!==remote[k])origSet.call(localStorage,k,remote[k]);});
+    var ownerChanged=false;
+    Object.keys(remote).forEach(function(k){last[k]=remote[k];if(localStorage.getItem(k)!==remote[k]){origSet.call(localStorage,k,remote[k]);ownerChanged=true;}});
     ready=true;status();L.watch().catch(function(){status('err')});
-    return{changed:true,migrated:false,readOnly:true};
+    return{changed:ownerChanged,migrated:false,readOnly:true};
    }
    function arr(raw){try{var x=JSON.parse(raw||'[]');return Array.isArray(x)?x:[]}catch(e){return[]}}
    var localDeleted=arr(localStorage.getItem(dk)),cloudDeleted=arr(remote[dk]),mergedDeleted=[],seenDeleted={};
