@@ -3499,7 +3499,7 @@ var C=window.LP_FIREBASE||{};
 var L=window.LPCloud={enabled:!!(C.apiKey&&C.projectId)};
 if(!L.enabled)return;
 var B='https://www.gstatic.com/firebasejs/10.14.1/',P='laPrincesa_',CH=200000;
-var origSet=Storage.prototype.setItem,origRemove=Storage.prototype.removeItem,M=null,app,auth,db,ready=false,who='',pend=0,last={},dirty={},writing={},tm=null,badge=null,inflight=[],unsub=null,remotePending=false;
+var origSet=Storage.prototype.setItem,origRemove=Storage.prototype.removeItem,M=null,app,auth,db,ready=false,who='',roleName='',pend=0,last={},dirty={},writing={},tm=null,badge=null,inflight=[],unsub=null,remotePending=false;
 function keys(){var k=[];for(var i=0;i<localStorage.length;i++){var n=localStorage.key(i);if(n&&n.indexOf(P)===0)k.push(n)}return k}
 function toEmail(u){u=String(u).trim().toLowerCase();return u.indexOf('@')>0?u:u.replace(/\s+/g,'')+'@laprincesa-pos.app'}
 L.toEmail=toEmail;
@@ -3531,6 +3531,7 @@ L.role=function(user){
    var d=s.data();
    if(!d||d.role!=='owner'&&d.role!=='staff')return null;
    var r={role:d.role,username:d.name||d.username||user.email||'user'};
+   roleName=d.role;L.roleName=roleName;L.isOwnerMonitor=roleName==='owner';
    who=r.username;
    return r;
   });
@@ -3548,6 +3549,12 @@ L.hydrate=function(){
     if(d.parts>0){v='';for(var i=0;i<d.parts;i++){var s=(parts[k]||{})[i];if(typeof s!=='string'){v=null;break}v+=s}}else v=d.v;
     if(typeof v==='string')remote[k]=v;
    });
+   // Owner devices hydrate from Firestore only. Never seed or reconcile cloud data from local Owner storage.
+   if(roleName==='owner'){
+    Object.keys(remote).forEach(function(k){last[k]=remote[k];if(localStorage.getItem(k)!==remote[k])origSet.call(localStorage,k,remote[k]);});
+    ready=true;status();L.watch().catch(function(){status('err')});
+    return{changed:true,migrated:false,readOnly:true};
+   }
    function arr(raw){try{var x=JSON.parse(raw||'[]');return Array.isArray(x)?x:[]}catch(e){return[]}}
    var localDeleted=arr(localStorage.getItem(dk)),cloudDeleted=arr(remote[dk]),mergedDeleted=[],seenDeleted={};
    localDeleted.concat(cloudDeleted).forEach(function(x){
@@ -3675,7 +3682,7 @@ function flush(){
 }
 Storage.prototype.setItem=function(k){
  var r=origSet.apply(this,arguments);
- if(ready&&this===localStorage&&typeof k==='string'&&k.indexOf(P)===0)schedule(k);
+ if(ready&&roleName!=='owner'&&this===localStorage&&typeof k==='string'&&k.indexOf(P)===0)schedule(k);
  return r;
 };
 function status(e){
@@ -3689,6 +3696,7 @@ function status(e){
 window.addEventListener('online',function(){if(ready)status()});
 window.addEventListener('offline',function(){if(ready)status()});
 L.wipe=function(keep){
+ if(roleName==='owner')return Promise.reject({code:'permission-denied'});
  return L.load().then(function(m){
   var F=m.F;
   return F.getDocs(F.collection(db,'data')).then(function(snap){
@@ -3699,7 +3707,7 @@ L.wipe=function(keep){
   });
  }).then(function(){last={};dirty={}});
 };
-L.flushNow=function(){flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
+L.flushNow=function(){if(roleName==='owner')return Promise.resolve();flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
 L.syncNow=function(){return L.hydrate()};
 L.users=function(){return L.load().then(function(m){var F=m.F;return F.getDocs(F.collection(db,'roles')).then(function(s){var a=[];s.forEach(function(d){var x=d.data();a.push({uid:d.id,username:x.name||x.username||'?',role:x.role})});return a})})};
 L.addStaff=function(username,pw){
@@ -3717,7 +3725,7 @@ L.verifyPassword=function(id,pw){return L.load().then(function(m){var u=auth.cur
 L.changePw=function(cur,nw){return L.load().then(function(m){var Au=m.Au,u=auth.currentUser;return Au.reauthenticateWithCredential(u,Au.EmailAuthProvider.credential(u.email,cur)).then(function(){return Au.updatePassword(u,nw)})})};
 L.reset=function(id){return L.load().then(function(m){return m.Au.sendPasswordResetEmail(auth,toEmail(id))})};
 L.logout=function(){
- flush();
+ if(roleName!=='owner')flush();
  var wait=Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,5000)})]);
  return wait.then(function(){return L.load()}).then(function(m){return m.Au.signOut(auth)});
 };
