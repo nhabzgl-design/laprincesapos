@@ -7,6 +7,8 @@ on:
       - owner-monitoring-staging
     paths:
       - "index.html"
+      - "owner.html"
+      - "owner.webmanifest"
       - "sw.js"
       - "firebase-config.js"
       - "firestore.rules"
@@ -82,6 +84,32 @@ jobs:
           print(f"Syntax OK: {len(parser.items)} inline JavaScript blocks")
           PY
 
+      - name: Validate Owner Monitor PWA
+        run: |
+          python3 -m json.tool owner.webmanifest >/dev/null
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import subprocess, tempfile
+          class ModuleScripts(HTMLParser):
+              def __init__(self):
+                  super().__init__(); self.active=False; self.parts=[]; self.scripts=[]
+              def handle_starttag(self, tag, attrs):
+                  if tag.lower()=='script' and dict(attrs).get('type','').lower()=='module':
+                      self.active=True; self.parts=[]
+              def handle_data(self, data):
+                  if self.active: self.parts.append(data)
+              def handle_endtag(self, tag):
+                  if tag.lower()=='script' and self.active:
+                      self.scripts.append(''.join(self.parts)); self.active=False
+          p=ModuleScripts(); p.feed(Path('owner.html').read_text(encoding='utf-8'))
+          if len(p.scripts)!=1: raise SystemExit('Expected exactly one Owner Monitor module script')
+          with tempfile.NamedTemporaryFile('w',suffix='.mjs') as f:
+              f.write(p.scripts[0]); f.flush(); subprocess.run(['node','--check',f.name],check=True)
+          print('Owner Monitor module syntax OK')
+          PY
+          grep -q "onSnapshot" owner.html
+          grep -q "verifyOwner" owner.html
       - name: Validate PWA and Firebase bridge files
         run: |
           python3 -m json.tool manifest.webmanifest >/dev/null
