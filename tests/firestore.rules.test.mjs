@@ -66,6 +66,36 @@ test("Owner can read data and delete only the four approved Clear Data categorie
   await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_deleted_orders_v1")));
   await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_activity_log_v1")));
   await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_orders_v2~p0")));
+
+  // Owner may write only an explicit empty marker for each approved key.
+  for (const key of [
+    "laPrincesa_orders_v2",
+    "laPrincesa_inventory_v2",
+    "laPrincesa_deleted_orders_v1",
+    "laPrincesa_activity_log_v1"
+  ]) {
+    await assertSucceeds(setDoc(doc(db, "data", key), {
+      v: "[]",
+      parts: 0,
+      t: Date.now(),
+      by: "owner"
+    }));
+  }
+  await assertFails(setDoc(doc(db, "data", "laPrincesa_orders_v2"), {
+    v: '[{"id":"not-empty"}]',
+    parts: 0,
+    t: Date.now(),
+    by: "owner"
+  }));
+  await assertFails(setDoc(doc(db, "data", "laPrincesa_customers_v2"), {
+    v: "[]",
+    parts: 0,
+    t: Date.now(),
+    by: "owner"
+  }));
+  await assertFails(updateDoc(doc(db, "data", "laPrincesa_inventory_v2"), {
+    v: '[{"id":"not-empty"}]'
+  }));
   await assertFails(deleteDoc(doc(db, "data", "laPrincesa_customers_v2")));
   await assertFails(deleteDoc(doc(db, "data", "laPrincesa_machines")));
   await assertFails(deleteDoc(doc(db, "data", "laPrincesa_printer_mode_v1")));
