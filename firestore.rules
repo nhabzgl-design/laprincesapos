@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function rolePath(uid) {
+      return /databases/$(database)/documents/roles/$(uid);
+    }
+
+    function hasValidRole() {
+      return signedIn()
+        && exists(rolePath(request.auth.uid))
+        && get(rolePath(request.auth.uid)).data.role in ['owner', 'staff'];
+    }
+
+    function isOwner() {
+      return signedIn()
+        && exists(rolePath(request.auth.uid))
+        && get(rolePath(request.auth.uid)).data.role == 'owner';
+    }
+
+    function clearGenerationPath() {
+      return /databases/$(database)/documents/meta/clear_generation;
+    }
+
+    function currentClearGeneration() {
+      return exists(clearGenerationPath())
+        ? get(clearGenerationPath()).data.generation
+        : 0;
+    }
+
+    // Legacy clients may write without a generation only before the first
+    // Owner clear. After that, stale/offline operational writes are rejected.
+    function hasCurrentClearGeneration() {
+      return request.resource.data.keys().hasAny(['g'])
+        ? request.resource.data.g == currentClearGeneration()
+        : currentClearGeneration() == 0;
+    }
+
+    function isValidClearGenerationDoc() {
+      return request.resource.data.keys().hasAll(['generation', 't', 'by'])
+        && request.resource.data.keys().hasOnly(['generation', 't', 'by'])
+        && request.resource.data.generation is int
+        && request.resource.data.t is number
+        && request.resource.data.by is string;
+    }
+
+    function isClearableOperationalDoc(documentId) {
+      return documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)(~p[0-9]+)?$');
+    }
+
+    // The four empty root markers must be committed atomically with the
+    // next clear generation. Chunk documents are never accepted as markers.
+    function isEmptyClearMarker() {
+      return request.resource.data.keys().hasAll(['v', 'parts', 't', 'by', 'g'])
+        && request.resource.data.keys().hasOnly(['v', 'parts', 't', 'by', 'g'])
+        && request.resource.data.v == '[]'
+        && request.resource.data.parts == 0
+        && request.resource.data.t is number
+        && request.resource.data.by is string
+        && request.resource.data.g is int
+        && request.resource.data.g == getAfter(clearGenerationPath()).data.generation;
+    }
+
+    // The first Owner role must be created manually by the Firebase project
+    // administrator after creating the Owner's Authentication user.
+    match /roles/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isOwner());
+      allow list: if isOwner();
+      allow create: if isOwner()
+        && request.resource.data.role == 'staff';
+      allow update: if isOwner()
+        && resource.data.role == 'staff'
+        && request.resource.data.role == 'staff';
+      allow delete: if isOwner()
+        && resource.data.role == 'staff';
+    }
+
+    match /data/{documentId} {
+      allow read: if hasValidRole();
+
+      allow create, update: if
+        (hasValidRole()
+          && (!isClearableOperationalDoc(documentId) || hasCurrentClearGeneration()))
+        || (isOwner()
+          && documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)$')
+          && isEmptyClearMarker());
+
+      // Root markers remain durable. Only Owner may remove obsolete chunks.
+      allow delete: if (hasValidRole() && !isClearableOperationalDoc(documentId))
+        || (isOwner()
+          && documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)~p[0-9]+$'));
+    }
+
+    match /meta/{documentId} {
+      allow get: if documentId == 'clear_generation' && hasValidRole();
+      allow list: if false;
+      allow create: if documentId == 'clear_generation'
+        && isOwner()
+        && isValidClearGenerationDoc()
+        && request.resource.data.generation == 1;
+      allow update: if documentId == 'clear_generation'
+        && isOwner()
+        && isValidClearGenerationDoc()
+        && request.resource.data.generation == resource.data.generation + 1;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
