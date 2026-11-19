@@ -48,11 +48,25 @@ service cloud.firestore {
       return documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)(~p[0-9]+)?$');
     }
 
-    // Staff retain operational write access. Owner remains read-only except
-    // for deleting the four explicitly approved data categories above.
+    // A Clear Data marker is an explicit empty array document. Owner may
+    // create/update only this exact marker, and only for the four approved
+    // operational keys. This prevents stale staff-device copies from being
+    // uploaded again after the Owner clears the cloud data.
+    function isEmptyClearMarker() {
+      return request.resource.data.keys().hasAll(['v', 'parts', 't', 'by'])
+        && request.resource.data.keys().hasOnly(['v', 'parts', 't', 'by'])
+        && request.resource.data.v == '[]'
+        && request.resource.data.parts == 0
+        && request.resource.data.t is number
+        && request.resource.data.by is string;
+    }
+
+    // Staff retain operational write access. Owner can write only the empty
+    // clear marker for the four approved keys; all other Owner writes remain denied.
     match /data/{documentId} {
       allow read: if hasValidRole();
-      allow create, update: if isStaff();
+      allow create, update: if isStaff()
+        || (isOwner() && isClearableOperationalDoc(documentId) && isEmptyClearMarker());
       allow delete: if (isStaff() && !isClearableOperationalDoc(documentId))
         || (isOwner() && isClearableOperationalDoc(documentId));
     }
