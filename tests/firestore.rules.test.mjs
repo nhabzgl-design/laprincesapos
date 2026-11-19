@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import assert from "node:assert/strict";
 import test, { after, before } from "node:test";
 import {
   initializeTestEnvironment,
@@ -96,7 +97,8 @@ test("only Owner can atomically increment generation and publish the four empty 
   }
   await assertSucceeds(batch.commit());
   for (const key of ["laPrincesa_customers_v2", "laPrincesa_expenses_v2", "laPrincesa_services_v2", "laPrincesa_machines"]) {
-    await assertSucceeds(getDoc(doc(owner, "data", key)));
+    const preserved = await assertSucceeds(getDoc(doc(owner, "data", key)));
+    assert.equal(preserved.exists(), true, key + " must survive Owner Clear Data");
   }
 
   const staff = staffDb();
