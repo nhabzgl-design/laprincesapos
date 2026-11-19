@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, fix-main-apk-workflow, lp-production-clear-data-fix ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, lp-production-clear-data-fix ]
   workflow_dispatch:
 
 permissions:
@@ -33,12 +33,18 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.0.2'
-      - name: Prepare bundled POS HTML and launcher icon
+      - name: Prepare bundled POS HTML, Firebase config and launcher icon
         run: |
           mkdir -p app/src/main/assets app/src/main/res/mipmap-nodpi
           cp index.html app/src/main/assets/index.html
+          if [ -f firebase-config.js ]; then
+            cp firebase-config.js app/src/main/assets/firebase-config.js
+          else
+            printf '%s\\n' 'window.LP_FIREBASE = {apiKey:"",authDomain:"",projectId:"",storageBucket:"",messagingSenderId:"",appId:""};' > app/src/main/assets/firebase-config.js
+          fi
           cp icon-maskable-512.png app/src/main/res/mipmap-nodpi/ic_launcher.png
           test -s app/src/main/assets/index.html
+          test -s app/src/main/assets/firebase-config.js
           test -s app/src/main/res/mipmap-nodpi/ic_launcher.png
       - name: Validate inline JavaScript syntax
         run: |
