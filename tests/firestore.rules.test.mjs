@@ -12,7 +12,8 @@ import {
   getDoc,
   getDocs,
   setDoc,
-  updateDoc
+  updateDoc,
+  writeBatch
 } from "firebase/firestore";
 
 const projectId = "demo-laprincesa-pos-rules";
@@ -50,9 +51,10 @@ test("unauthenticated users cannot read or write POS data", async () => {
   const db = env.unauthenticatedContext().firestore();
   await assertFails(getDoc(doc(db, "data", "sample")));
   await assertFails(setDoc(doc(db, "data", "unauthorized"), { value: true }));
+  await assertFails(getDoc(doc(db, "meta", "clear_generation")));
 });
 
-test("Owner can read data and delete only the four approved Clear Data categories", async () => {
+test("Owner can atomically advance the clear generation and write only four empty markers", async () => {
   const db = env.authenticatedContext("owner-uid", {
     email: "owner@example.com"
   }).firestore();
@@ -61,57 +63,76 @@ test("Owner can read data and delete only the four approved Clear Data categorie
   await assertFails(setDoc(doc(db, "data", "owner-write"), { value: 1 }));
   await assertFails(updateDoc(doc(db, "data", "sample"), { total: 200 }));
   await assertFails(deleteDoc(doc(db, "data", "sample")));
-  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_orders_v2")));
-  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_inventory_v2")));
-  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_deleted_orders_v1")));
-  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_activity_log_v1")));
-  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_orders_v2~p0")));
+  await assertFails(getDoc(doc(db, "meta", "unrelated")));
 
-  // Owner may write only an explicit empty marker for each approved key.
+  // A marker without the matching generation update must not be accepted.
+  await assertFails(setDoc(doc(db, "data", "laPrincesa_orders_v2"), {
+    v: "[]", parts: 0, t: Date.now(), by: "owner", g: 1
+  }));
+
+  const batch = writeBatch(db);
+  batch.set(doc(db, "meta", "clear_generation"), {
+    generation: 1, t: Date.now(), by: "owner"
+  });
   for (const key of [
     "laPrincesa_orders_v2",
     "laPrincesa_inventory_v2",
     "laPrincesa_deleted_orders_v1",
     "laPrincesa_activity_log_v1"
   ]) {
-    await assertSucceeds(setDoc(doc(db, "data", key), {
-      v: "[]",
-      parts: 0,
-      t: Date.now(),
-      by: "owner"
-    }));
+    batch.set(doc(db, "data", key), {
+      v: "[]", parts: 0, t: Date.now(), by: "owner", g: 1
+    });
   }
+  await assertSucceeds(batch.commit());
+
+  await assertSucceeds(getDoc(doc(db, "meta", "clear_generation")));
+  await assertFails(deleteDoc(doc(db, "data", "laPrincesa_orders_v2")));
+  await assertSucceeds(deleteDoc(doc(db, "data", "laPrincesa_orders_v2~p0")));
+
   await assertFails(setDoc(doc(db, "data", "laPrincesa_orders_v2"), {
-    v: '[{"id":"not-empty"}]',
-    parts: 0,
-    t: Date.now(),
-    by: "owner"
+    v: '[{"id":"not-empty"}]', parts: 0, t: Date.now(), by: "owner", g: 1
   }));
   await assertFails(setDoc(doc(db, "data", "laPrincesa_customers_v2"), {
-    v: "[]",
-    parts: 0,
-    t: Date.now(),
-    by: "owner"
+    v: "[]", parts: 0, t: Date.now(), by: "owner", g: 1
   }));
-  await assertFails(updateDoc(doc(db, "data", "laPrincesa_inventory_v2"), {
-    v: '[{"id":"not-empty"}]'
+  await assertFails(updateDoc(doc(db, "meta", "clear_generation"), {
+    generation: 3
   }));
+  await assertFails(deleteDoc(doc(db, "meta", "clear_generation")));
   await assertFails(deleteDoc(doc(db, "data", "laPrincesa_customers_v2")));
   await assertFails(deleteDoc(doc(db, "data", "laPrincesa_machines")));
   await assertFails(deleteDoc(doc(db, "data", "laPrincesa_printer_mode_v1")));
 });
 
-test("Staff can read and write shared POS data", async () => {
+test("Staff writes at the current generation but cannot replay stale offline data", async () => {
   const db = env.authenticatedContext("staff-uid", {
     email: "cashier@laprincesa-pos.app"
   }).firestore();
 
   await assertSucceeds(getDoc(doc(db, "data", "sample")));
+  await assertSucceeds(getDoc(doc(db, "meta", "clear_generation")));
   await assertSucceeds(setDoc(doc(db, "data", "staff-write"), { value: 2 }));
+
+  await assertSucceeds(setDoc(doc(db, "data", "laPrincesa_orders_v2"), {
+    v: '[{"id":"new-order"}]', parts: 0, t: Date.now(), by: "cashier", g: 1
+  }));
+  await assertSucceeds(setDoc(doc(db, "data", "laPrincesa_orders_v2~p1"), {
+    s: "new chunk", g: 1
+  }));
+  await assertFails(setDoc(doc(db, "data", "laPrincesa_orders_v2"), {
+    v: '[{"id":"stale-offline-order"}]', parts: 0, t: Date.now(), by: "cashier", g: 0
+  }));
+  await assertFails(setDoc(doc(db, "data", "laPrincesa_orders_v2~p2"), {
+    s: "stale chunk", g: 0
+  }));
   await assertFails(deleteDoc(doc(db, "data", "laPrincesa_orders_v2")));
   await assertFails(deleteDoc(doc(db, "data", "laPrincesa_inventory_v2")));
   await assertFails(deleteDoc(doc(db, "data", "laPrincesa_deleted_orders_v1")));
   await assertFails(deleteDoc(doc(db, "data", "laPrincesa_activity_log_v1")));
+  await assertFails(setDoc(doc(db, "meta", "clear_generation"), {
+    generation: 2, t: Date.now(), by: "cashier"
+  }));
 });
 
 test("users without a provisioned role cannot access POS data", async () => {
@@ -121,6 +142,7 @@ test("users without a provisioned role cannot access POS data", async () => {
 
   await assertFails(getDoc(doc(db, "data", "sample")));
   await assertFails(setDoc(doc(db, "data", "blocked"), { value: 3 }));
+  await assertFails(getDoc(doc(db, "meta", "clear_generation")));
 });
 
 test("Staff can read only their own role and cannot manage roles", async () => {
