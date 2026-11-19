@@ -40,10 +40,10 @@ before(async () => {
       email: "cashier@laprincesa-pos.app"
     });
     await setDoc(doc(db, "data", "sample"), { total: 100 });
-    await setDoc(doc(db, "data", "laPrincesa_customers_v2"), { v: "[{\\\"id\\\":\\\"customer-1\\\"}]", parts: 0, t: 1, by: "owner" });
-    await setDoc(doc(db, "data", "laPrincesa_expenses_v2"), { v: "[{\\\"id\\\":\\\"expense-1\\\"}]", parts: 0, t: 1, by: "owner" });
-    await setDoc(doc(db, "data", "laPrincesa_services_v2"), { v: "[{\\\"id\\\":\\\"service-1\\\"}]", parts: 0, t: 1, by: "owner" });
-    await setDoc(doc(db, "data", "laPrincesa_machines"), { v: "[{\\\"id\\\":\\\"machine-1\\\"}]", parts: 0, t: 1, by: "owner" });
+    await setDoc(doc(db, "data", "laPrincesa_customers_v2"), { v: '[{"id":"customer-1"}]', parts: 0, t: 1, by: "owner" });
+    await setDoc(doc(db, "data", "laPrincesa_expenses_v2"), { v: '[{"id":"expense-1"}]', parts: 0, t: 1, by: "owner" });
+    await setDoc(doc(db, "data", "laPrincesa_services_v2"), { v: '[{"id":"service-1"}]', parts: 0, t: 1, by: "owner" });
+    await setDoc(doc(db, "data", "laPrincesa_machines"), { v: '[{"id":"machine-1"}]', parts: 0, t: 1, by: "owner" });
   });
 });
 
@@ -95,7 +95,7 @@ test("only Owner can atomically increment generation and publish the four empty 
     });
   }
   await assertSucceeds(batch.commit());
-  for (const key of ["laPrincesa_customers_v2", "laPrincesa_expenses_v2", "laPrincesa_services_v2", "laPrincesa_machines"]) {
+    await setDoc(doc(db, "data", "laPrincesa_customers_v2"), { v: '[{"id":"customer-1"}]', parts: 0, t: 1, by: "owner" });
     await assertSucceeds(getDoc(doc(owner, "data", key)));
   }
 
@@ -109,7 +109,7 @@ test("only Owner can atomically increment generation and publish the four empty 
 
 test("Staff writes with the current generation succeed; stale and untagged writes fail", async () => {
   await assertSucceeds(setDoc(doc(staffDb(), "data", "laPrincesa_orders_v2"), {
-    v: "[{\\\"id\\\":\\\"new-order\\\"}]", parts: 0, t: 4, by: "cashier", g: 1
+    v: '[{"id":"new-order"}]', parts: 0, t: 4, by: "cashier", g: 1
   }));
   await assertFails(setDoc(doc(staffDb(), "data", "laPrincesa_orders_v2"), {
     v: "[]", parts: 0, t: 4, by: "cashier", g: 1
@@ -136,7 +136,7 @@ test("Staff writes with the current generation succeed; stale and untagged write
   }
   await assertSucceeds(secondClear.commit());
   await assertSucceeds(setDoc(doc(staffDb(), "data", "laPrincesa_orders_v2"), {
-    v: "[{\\\"id\\\":\\\"post-clear-order\\\"}]", parts: 0, t: 7, by: "cashier", g: 2
+    v: '[{"id":"post-clear-order"}]', parts: 0, t: 7, by: "cashier", g: 2
   }));
   await assertFails(setDoc(doc(staffDb(), "data", "laPrincesa_orders_v2"), {
     v: "[]", parts: 0, t: 7, by: "cashier", g: 2
