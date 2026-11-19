@@ -66,6 +66,21 @@ The accompanying `firestore.rules` is a starting point, not a verified productio
 
 Important limitation: because the current data model puts multiple POS settings and business records in the same `data` collection, the rules cannot distinguish every Owner-only field from Staff-editable fields. The app's existing UI role checks still apply. A stronger per-feature authorization model would require a separate schema/backend change and must be planned without breaking Android workflows.
 
+## Owner Clear Data generation barrier
+
+The Android Staff bridge now watches `meta/clear_generation`. The iOS Owner POS publishes one incremented generation and four empty root markers in a single Firestore batch for:
+
+- `laPrincesa_orders_v2` — Sales / Orders
+- `laPrincesa_inventory_v2` — Inventory
+- `laPrincesa_deleted_orders_v1` — Deleted Records
+- `laPrincesa_activity_log_v1` — Activity Log
+
+After the first clear, Android Staff writes to these four operational key families include the current generation. Firestore rules reject writes carrying an older generation (including old offline writes). When a Staff device observes a newer generation, it replaces only those four local keys with empty arrays and clears their pending local bridge writes. Root empty markers remain as the durable barrier; only obsolete chunk documents may be deleted by Owner.
+
+The first generation is compatible with old clients that omit the generation field. Once the generation becomes 1, operational writes without the matching `g` field are rejected. Do not deploy the new rules without updating the Android Staff APK and iOS Owner app together.
+
+The Firestore Emulator tests cover the atomic Owner marker batch, current-generation Staff writes, rejection of stale/untagged writes, and chunk/root deletion permissions. These tests do not replace real-device testing, especially offline/reconnect tests.
+
 ## Do not release yet
 
 - Do not merge this development branch to `main` until Firebase config, rules, account provisioning, migration, and cross-device tests pass.
