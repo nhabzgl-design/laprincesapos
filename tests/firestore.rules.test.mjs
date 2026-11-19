@@ -78,7 +78,7 @@ test("Owner and Staff can read and write normal shared POS data", async () => {
 
 test("legacy Staff operational writes are accepted only before the first clear", async () => {
   await assertSucceeds(setDoc(doc(staffDb(), "data", "laPrincesa_orders_v2"), {
-    v: "[]", parts: 0, t: 1, by: "cashier"
+    v: '[{"id":"legacy-order"}]', parts: 0, t: 1, by: "cashier"
   }));
 });
 
@@ -95,7 +95,7 @@ test("only Owner can atomically increment generation and publish the four empty 
     });
   }
   await assertSucceeds(batch.commit());
-    await setDoc(doc(db, "data", "laPrincesa_customers_v2"), { v: '[{"id":"customer-1"}]', parts: 0, t: 1, by: "owner" });
+  for (const key of ["laPrincesa_customers_v2", "laPrincesa_expenses_v2", "laPrincesa_services_v2", "laPrincesa_machines"]) {
     await assertSucceeds(getDoc(doc(owner, "data", key)));
   }
 
