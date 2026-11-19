@@ -1,80 +1,71 @@
 # Firebase Staging Setup — La Princesa POS
 
-This guide is for the `owner-monitoring-staging` branch only. Do not use the production Firebase project for these tests.
+This guide applies only to the `owner-monitoring-staging` branch and the Firebase project ID `la-princesa-pos-staging`. Never use the production Firebase project for these steps.
 
-## 1. Create a separate Firebase project
+## Current repository configuration
 
-1. Open https://console.firebase.google.com/ and choose **Add project**.
-2. Use a clear name such as **La Princesa POS Staging**. The Firebase project ID must be unique; Firebase will suggest one.
-3. Google Analytics is optional for this test project. It can be disabled.
-4. Create the project. Confirm the project selector shows the staging project before doing any further setup.
+- `firebase-config.js` is already populated and points to `la-princesa-pos-staging`.
+- `firebase.json` maps Firestore rules to `firestore.rules`.
+- The staging rules are tested in the Firestore Emulator CI workflow.
+- The rules are **not considered deployed** until the manual deployment workflow completes successfully and the Firebase Console shows the same rules.
 
-## 2. Register a Web App and configure this branch
+## 1. Verify the staging Firebase project
 
-1. In the staging project overview, choose **Add app → Web**.
-2. Give it a name such as `La Princesa POS Staging Web`. Hosting is not required for this registration.
-3. Copy the Firebase Web App configuration values from the Firebase console.
-4. In this branch only, replace the empty values in `firebase-config.js`:
-   - `apiKey`
-   - `authDomain`
-   - `projectId`
-   - `storageBucket`
-   - `messagingSenderId`
-   - `appId`
+1. Open [Firebase Console](https://console.firebase.google.com/).
+2. In the project selector, find the project whose exact project ID is `la-princesa-pos-staging`.
+3. If it is missing, stop. Do not create a project with a guessed ID and do not select the production project.
+4. Open **Build → Firestore Database**. Confirm the default database exists. If it does not exist, create it in **production mode** in `asia-southeast1` (Singapore). Do not change or recreate an existing database.
 
-These are public web-app identifiers. Do not paste a service-account JSON file, Admin SDK private key, password, or any other secret into the repository or chat.
+## 2. Prepare a narrowly scoped deployment identity
 
-## 3. Enable Authentication
+The GitHub workflow deploys **Firestore rules only**. It does not deploy Hosting, Auth users, Firestore documents, POS data, or the app.
 
-1. Open **Build → Authentication → Get started**.
-2. Open **Sign-in method**.
-3. Enable **Email/Password**.
-4. In **Users**, create a staging Owner test account for Sheena and a separate staging Staff test account. Use test passwords that are not used by production accounts.
+1. In Google Cloud Console for `la-princesa-pos-staging`, create or select a dedicated service account for staging rules deployment.
+2. Grant that service account the **Firebase Rules Admin** role (`roles/firebaserules.admin`) on the staging project only.
+3. Create a JSON key only if your organization permits service-account keys. Treat it like a password; never paste it into chat, commit it, or add it to `firebase-config.js`.
+4. In GitHub, open this repository → **Settings → Secrets and variables → Actions → New repository secret**.
+5. Name the secret exactly `FIREBASE_STAGING_SERVICE_ACCOUNT_JSON` and paste the complete service-account JSON as its value.
 
-## 4. Create the staging Firestore database
+Prefer Workload Identity Federation over long-lived service-account keys when it is already configured. The workflow currently expects the repository secret above; do not add a key to source control.
 
-1. Open **Build → Firestore Database → Create database**.
-2. Choose production mode (not test mode).
-3. Select **asia-southeast1 (Singapore)** to match the intended deployment region.
-4. Create the database.
-5. Open the **Rules** tab and publish the contents of this branch's `firestore.rules` to the staging project only.
+## 3. Deploy the staging rules
 
-The staging rules permit Owner reads of shared POS records but deny Owner create/update/delete on the operational `data` collection. Staff accounts can perform operational writes. Only Owner can manage Staff role documents. Do not publish the permissive rule `allow read, write: if request.auth != null`.
+1. Open the repository's **Actions** tab.
+2. Select **Deploy Staging Firestore Rules**.
+3. Press **Run workflow** and choose branch `owner-monitoring-staging`.
+4. Confirm the run targets `la-princesa-pos-staging` and finishes successfully.
+5. In Firebase Console → **Build → Firestore Database → Rules**, verify that the published rules match the repository's `firestore.rules`.
 
-## 5. Provision the two role documents
+The workflow has a hard-coded staging project ID, checks the staging web config, and runs only `firebase deploy --only firestore:rules`. It refuses to run from another branch.
 
-In **Firestore → Data**, create a collection named `roles`.
+## 4. Provision separate test accounts and roles
 
-For each staging Auth account, create a document whose document ID is the exact Firebase Authentication UID:
+Use test accounts only. Do not reuse production UIDs or production passwords.
 
-**Owner role document**
-- Document ID: the staging Owner Auth UID
-- `role` — string — `owner`
-- `name` — string — `Sheena Marie Cuizon`
-- `email` — string — exactly the email used by the staging Owner Auth account
+1. In Firebase Console → **Authentication → Sign-in method**, enable **Email/Password**.
+2. Create a staging Owner test account and a separate staging Staff test account.
+3. In Firestore, create a `roles` document for each account. The document ID must be that test account's exact Authentication UID.
+4. Owner document fields: `role` = string `owner`, `name` = string `Sheena Marie Cuizon`, and `email` = the staging Owner email.
+5. Staff document fields: `role` = string `staff`, `name` = a test cashier name, and `email` = the staging Staff email.
 
-**Staff role document**
-- Document ID: the staging Staff Auth UID
-- `role` — string — `staff`
-- `name` — string — a test cashier name
-- `email` — string — exactly the email used by the staging Staff Auth account
+Never create a role document for an unverified UID. The first Owner must be provisioned manually by the project administrator.
 
-Do not reuse production UIDs. Do not copy production role documents.
+## 5. Staging-only functional test
 
-## 6. Safe test sequence
-
-1. Use only test data in the staging project. Do not import live customer, sales, inventory, or expense data.
-2. Sign in to the Android Staff POS with the staging Staff account.
-3. Add a clearly marked test product/order/customer. Confirm the Firestore `data` documents are created.
-4. Sign in to `owner.html` on the iPhone with the staging Owner account. Confirm the monitoring view receives the shared records.
-5. Confirm the Owner account cannot write to the `data` collection (Firestore rules deny it).
-6. Confirm the Staff account can perform the intended test sale and inventory changes.
-7. Test refresh, sign-out, sign-in, and live updates.
+1. Use only clearly marked test records. Do not import live sales, customers, inventory, or expenses.
+2. Sign in on two separate devices with the staging Staff and Owner accounts.
+3. Create a test sale and inventory change as Staff; verify the Owner view receives them.
+4. Run Owner Clear Data only after confirming the test data is disposable.
+5. Verify only Sales (`orders_v2`), Inventory (`inventory_v2`), Records (`deleted_orders_v1`), and Activity Log (`activity_log_v1`) are cleared.
+6. Verify Owner/Staff roles, login, machines, printer settings, cash-drawer settings, and all other settings remain.
+7. Reconnect a Staff device that was offline during the clear. Verify its old queued data is rejected and does not return.
+8. Test receipt printing and the cash-drawer trigger separately. The clear-data patch must not alter either behavior.
 
 ## Safety boundaries
 
-- This branch's `firebase-config.js` is intentionally blank until the staging project is created.
-- The production Firebase project, production Firestore rules, `main` branch, and live shop data must remain untouched.
-- The Owner Monitor is a read-only dashboard. Its displayed totals are still subject to a separate reconciliation test against actual POS test records before being relied on.
-- A green GitHub syntax/CI check does not prove that Firebase authentication, Firestore permissions, or live synchronization work. Those require the staging project and real test accounts.
-- Do not deploy the staging rules to production. Do not merge this branch into `main` until the staging tests and security review pass.
+- Do not deploy these rules to production.
+- Do not merge PR #31 wholesale into `main`; it contains broader staging infrastructure and app changes.
+- Do not publish or install the staging APK as the live POS release.
+- Emulator CI passing is not proof of Firebase deployment or real multi-device/offline behavior.
+- Firestore rule changes can take time to propagate. Wait for propagation before testing active clients.
+- Keep all real shop data and production accounts untouched.
