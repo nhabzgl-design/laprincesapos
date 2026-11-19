@@ -3575,7 +3575,13 @@ L.role=function(user){
 L.hydrate=function(){
  return L.load().then(function(m){
   var F=m.F;
-  return F.getDocs(F.collection(db,'data')).then(function(snap){
+  return Promise.all([F.getDoc(F.doc(db,'meta','clear_generation')),F.getDocs(F.collection(db,'data'))]).then(function(results){
+   var genSnap=results[0],snap=results[1],cloudGeneration=genSnap.exists()?Number(genSnap.data().generation)||0:0;
+   var localGeneration=Number(localStorage.getItem('lpmeta_clear_generation_v1')||0);
+   if(cloudGeneration>localGeneration){
+    ['orders_v2','inventory_v2','deleted_orders_v1','activity_log_v1'].forEach(function(n){origSet.call(localStorage,P+n,'[]');delete last[P+n];delete dirty[P+n]});
+   }
+   origSet.call(localStorage,'lpmeta_clear_generation_v1',String(cloudGeneration));
    var main={},parts={},remote={};
    snap.forEach(function(d){var id=d.id,i=id.indexOf('~p');if(i<0)main[id]=d.data();else{var k=id.slice(0,i);(parts[k]=parts[k]||{})[+id.slice(i+2)]=d.data().s}});
    var ids=Object.keys(main),changed=false,bk={},dk=P+'deleted_orders_v1',ok=P+'orders_v2';
@@ -3687,6 +3693,7 @@ L.clearOperationalData=function(){
      batch.set(genRef,{generation:next,t:now,by:who});
      names.forEach(function(n){batch.set(F.doc(db,'data',P+n),{v:'[]',parts:0,t:now,by:who,g:next})});
      return batch.commit().then(function(){
+      origSet.call(localStorage,'lpmeta_clear_generation_v1',String(next));
       names.forEach(function(n){last[P+n]='[]';delete dirty[P+n]});
       return F.getDocs(F.collection(db,'data')).then(function(snap){
        var refs=[];
