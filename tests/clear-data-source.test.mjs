@@ -26,7 +26,7 @@ test("Cloud clear commits only empty markers before deleting approved chunks", (
   assert.match(cloud, /roleName!=='owner'/);
   assert.match(cloud, /names=\['orders_v2','inventory_v2','deleted_orders_v1','activity_log_v1'\]/);
   assert.match(cloud, /v:'\[\]',parts:0/);
-  assert.match(cloud, /meta\/clear_generation/);
+  assert.match(cloud, /meta','clear_generation/);
   assert.match(cloud, /generation:next/);
   assert.match(cloud, /by:who,g:next/);
   assert.match(cloud, /allowed=\/\^laPrincesa_\(orders_v2\|inventory_v2\|deleted_orders_v1\|activity_log_v1\)\(~p\[0-9\]\+\)\?\$\//);
