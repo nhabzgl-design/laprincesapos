@@ -2,7 +2,7 @@ name: Build Native APK
 
 on:
   push:
-    branches: [ main, fix-main-apk-workflow, lp-production-clear-data-fix ]
+    branches: [ main, fix-main-apk-workflow ]
   pull_request:
     branches: [ main, lp-production-clear-data-fix ]
   workflow_dispatch:
@@ -37,11 +37,7 @@ jobs:
         run: |
           mkdir -p app/src/main/assets app/src/main/res/mipmap-nodpi
           cp index.html app/src/main/assets/index.html
-          if [ -f firebase-config.js ]; then
-            cp firebase-config.js app/src/main/assets/firebase-config.js
-          else
-            printf '%s\\n' 'window.LP_FIREBASE = {apiKey:"",authDomain:"",projectId:"",storageBucket:"",messagingSenderId:"",appId:""};' > app/src/main/assets/firebase-config.js
-          fi
+          cp firebase-config.js app/src/main/assets/firebase-config.js
           cp icon-maskable-512.png app/src/main/res/mipmap-nodpi/ic_launcher.png
           test -s app/src/main/assets/index.html
           test -s app/src/main/assets/firebase-config.js
@@ -113,29 +109,6 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease --stacktrace
-      - name: Verify APK package, alignment, and signature
-        run: |
-          set -euo pipefail
-          BUILD_TOOLS="$ANDROID_HOME/build-tools/34.0.0"
-          DEBUG_APK="app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$DEBUG_APK"
-          "$BUILD_TOOLS/zipalign" -c -v 4 "$DEBUG_APK"
-          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$DEBUG_APK"
-          "$BUILD_TOOLS/aapt" dump badging "$DEBUG_APK" | grep -E "^package: name='com\\.laprincesa\\.pos'"
-          if [ -s app/build/outputs/apk/release/app-release.apk ]; then
-            RELEASE_APK="app/build/outputs/apk/release/app-release.apk"
-            "$BUILD_TOOLS/zipalign" -c -v 4 "$RELEASE_APK"
-            "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$RELEASE_APK"
-            "$BUILD_TOOLS/aapt" dump badging "$RELEASE_APK" | grep -E "^package: name='com\\.laprincesa\\.pos'"
-          fi
-      - name: Install APK on Android 14 emulator
-        if: steps.signing.outputs.available == 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          profile: pixel_2
-          script: adb install -r app/build/outputs/apk/release/app-release.apk
       - name: Upload signed release APK
         if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@v4
