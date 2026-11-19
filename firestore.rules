@@ -81,6 +81,7 @@ service cloud.firestore {
     match /data/{documentId} {
       allow read: if hasValidRole();
 
+      // Staff cannot publish empty operational roots after the first Owner clear.
       allow create, update: if
         (hasValidRole()
           && (!isClearableOperationalDoc(documentId)
