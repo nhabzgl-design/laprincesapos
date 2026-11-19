@@ -93,4 +93,9 @@ jobs:
           grep -q "cp firebase-config.js app/src/main/assets/firebase-config.js" .github/workflows/build-apk.yml
           grep -q "test -s app/src/main/assets/firebase-config.js" .github/workflows/build-apk.yml
           grep -q "printHtmlBase64" index.html
-          echo "PWA, Firestore bridge, role check, and printer hook checks passed."
+          grep -q "meta.*clear_generation" index.html
+          grep -q "batchGeneration=clearGeneration" index.html
+          grep -q "function isOperationalKey" index.html
+          grep -q "batchGeneration<clearGeneration" index.html
+          grep -q "genUnsub=F.onSnapshot" index.html
+          echo "PWA, Firestore bridge, clear-generation barrier, role check, and printer hook checks passed."
