@@ -1,0 +1,103 @@
+name: Shared Database Bridge Checks
+
+on:
+  push:
+    branches:
+      - shared-db-android-bridge-dev
+    paths:
+      - "index.html"
+      - "sw.js"
+      - "firebase-config.js"
+      - "firestore.rules"
+      - "FIREBASE-SHARED-DATABASE-SETUP.md"
+      - ".github/workflows/shared-db-bridge-check.yml"
+      - ".github/workflows/build-apk.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "sw.js"
+      - "firebase-config.js"
+      - "firestore.rules"
+      - "FIREBASE-SHARED-DATABASE-SETUP.md"
+      - ".github/workflows/shared-db-bridge-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-shared-db-bridge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Validate inline JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          import subprocess
+          import tempfile
+
+          class Scripts(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.capture = False
+                  self.skip = False
+                  self.kind = ""
+                  self.parts = []
+                  self.items = []
+              def handle_starttag(self, tag, attrs):
+                  if tag.lower() == "script":
+                      attrs = dict(attrs)
+                      self.capture = True
+                      self.kind = attrs.get("type", "").lower().strip()
+                      self.skip = "src" in attrs or self.kind in ("application/json", "application/ld+json", "importmap")
+                      self.parts = []
+              def handle_data(self, data):
+                  if self.capture and not self.skip:
+                      self.parts.append(data)
+              def handle_endtag(self, tag):
+                  if tag.lower() == "script" and self.capture:
+                      if not self.skip and "".join(self.parts).strip():
+                          self.items.append((self.kind, "".join(self.parts)))
+                      self.capture = False
+                      self.skip = False
+
+          parser = Scripts()
+          parser.feed(Path("index.html").read_text(encoding="utf-8"))
+          if not parser.items:
+              raise SystemExit("No inline JavaScript found")
+          with tempfile.TemporaryDirectory() as td:
+              for i, (kind, source) in enumerate(parser.items, 1):
+                  suffix = ".mjs" if kind == "module" else ".js"
+                  file = Path(td) / f"inline-{i}{suffix}"
+                  file.write_text(source, encoding="utf-8")
+                  subprocess.run(["node", "--check", str(file)], check=True)
+          print(f"Syntax OK: {len(parser.items)} inline JavaScript blocks")
+          PY
+
+      - name: Validate PWA and Firebase bridge files
+        run: |
+          python3 -m json.tool manifest.webmanifest >/dev/null
+          node --check sw.js
+          node --check firebase-config.js
+          test -s firestore.rules
+          grep -q "onSnapshot" index.html
+          grep -q "role!=='owner'&&d.role!=='staff'" index.html
+          grep -q "firebase-config.js" index.html
+          grep -q "cp firebase-config.js app/src/main/assets/firebase-config.js" .github/workflows/build-apk.yml
+          grep -q "test -s app/src/main/assets/firebase-config.js" .github/workflows/build-apk.yml
+          grep -q "printHtmlBase64" index.html
+          grep -q "meta.*clear_generation" index.html
+          grep -q "batchGeneration=clearGeneration" index.html
+          grep -q "function isOperationalKey" index.html
+          grep -q "batchGeneration<clearGeneration" index.html
+          grep -q "genUnsub=F.onSnapshot" index.html
+          grep -q "lpmeta_clear_generation_v1" index.html
+          grep -q "if(clearGeneration>localGeneration)" index.html
+          echo "PWA, Firestore bridge, local/cloud generation barrier, role check, and printer hook checks passed."
