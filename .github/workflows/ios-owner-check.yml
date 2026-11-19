@@ -86,3 +86,5 @@ jobs:
           grep -q "role!=='owner'" ios-owner/index.html
           grep -q "projectId: \"laprincesa-pos\"" ios-owner/firebase-config.js
           ! grep -q "serviceAccount\|private_key" ios-owner/firebase-config.js
+          grep -q "lpmeta_clear_generation_v1" ios-owner/index.html
+          grep -q "cloudGeneration>localGeneration" ios-owner/index.html
