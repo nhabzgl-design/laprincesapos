@@ -3503,7 +3503,7 @@ var C=window.LP_FIREBASE||{};
 var L=window.LPCloud={enabled:!!(C.apiKey&&C.projectId)};
 if(!L.enabled)return;
 var B='https://www.gstatic.com/firebasejs/10.14.1/',P='laPrincesa_',CH=200000;
-var origSet=Storage.prototype.setItem,origRemove=Storage.prototype.removeItem,M=null,app,auth,db,ready=false,who='',roleName='',pend=0,last={},dirty={},writing={},tm=null,badge=null,inflight=[],unsub=null,remotePending=false;
+var origSet=Storage.prototype.setItem,origRemove=Storage.prototype.removeItem,M=null,app,auth,db,ready=false,who='',roleName='',clearGeneration=0,pend=0,last={},dirty={},writing={},tm=null,badge=null,inflight=[],unsub=null,genUnsub=null,remotePending=false;
 function keys(){var k=[];for(var i=0;i<localStorage.length;i++){var n=localStorage.key(i);if(n&&n.indexOf(P)===0)k.push(n)}return k}
 function toEmail(u){u=String(u).trim().toLowerCase();return u.indexOf('@')>0?u:u.replace(/\s+/g,'')+'@laprincesa-pos.app'}
 L.toEmail=toEmail;
@@ -3544,7 +3544,9 @@ L.role=function(user){
 L.hydrate=function(){
  return L.load().then(function(m){
   var F=m.F;
-  return F.getDocs(F.collection(db,'data')).then(function(snap){
+  return Promise.all([F.getDoc(F.doc(db,'meta','clear_generation')),F.getDocs(F.collection(db,'data'))]).then(function(results){
+   var genSnap=results[0],snap=results[1];
+   clearGeneration=genSnap.exists()?Number(genSnap.data().generation)||0:0;
    var main={},parts={},remote={};
    snap.forEach(function(d){var id=d.id,i=id.indexOf('~p');if(i<0)main[id]=d.data();else{var k=id.slice(0,i);(parts[k]=parts[k]||{})[+id.slice(i+2)]=d.data().s}});
    var ids=Object.keys(main),changed=false,bk={},dk=P+'deleted_orders_v1',ok=P+'orders_v2';
@@ -3616,7 +3618,20 @@ L.hydrate=function(){
 L.watch=function(){
  return L.load().then(function(m){
   if(unsub){unsub();unsub=null}
+  if(genUnsub){genUnsub();genUnsub=null}
   var F=m.F;
+  genUnsub=F.onSnapshot(F.doc(db,'meta','clear_generation'),function(snap){
+   var next=snap.exists()?Number(snap.data().generation)||0:0;
+   if(next>clearGeneration){
+    clearGeneration=next;
+    if(roleName!=='owner'){
+     ['orders_v2','inventory_v2','deleted_orders_v1','activity_log_v1'].forEach(function(n){
+      var key=P+n;origSet.call(localStorage,key,'[]');last[key]='[]';delete dirty[key];delete writing[key];
+     });
+     remotePending=true;status();
+    }
+   }
+  },function(){status('err')});
   unsub=F.onSnapshot(F.collection(db,'data'),function(snap){
    var main={},parts={},remote={},changed=[],removed=[];
    snap.docChanges().forEach(function(change){
@@ -3661,18 +3676,20 @@ L.watch=function(){
  });
 };
 function schedule(k){dirty[k]=1;clearTimeout(tm);tm=setTimeout(flush,1200);status()}
+function isOperationalKey(k){return /^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)$/.test(k)}
 L.localChanged=function(k){if(ready&&roleName!=='owner'&&typeof k==='string'&&k.indexOf(P)===0)schedule(k)};
 function flush(){
  if(!ready)return;
  var ks=Object.keys(dirty);dirty={};if(!ks.length)return;
  var p=L.load().then(function(m){
-  var F=m.F,b=F.writeBatch(db),n=0,writeKeys=[];
+  var F=m.F,b=F.writeBatch(db),n=0,writeKeys=[],batchGeneration=clearGeneration;
   ks.forEach(function(k){
    var v=localStorage.getItem(k);if(v==null||last[k]===v)return;
    last[k]=v;n++;writeKeys.push(k);
-   var ref=F.doc(db,'data',k);
-   if(v.length<=CH)b.set(ref,{v:v,parts:0,t:Date.now(),by:who});
-   else{var c=Math.ceil(v.length/CH);b.set(ref,{parts:c,t:Date.now(),by:who});for(var i=0;i<c;i++)b.set(F.doc(db,'data',k+'~p'+i),{s:v.slice(i*CH,(i+1)*CH)})}
+   var ref=F.doc(db,'data',k),meta={parts:0,t:Date.now(),by:who};
+   if(isOperationalKey(k))meta.g=batchGeneration;
+   if(v.length<=CH){meta.v=v;b.set(ref,meta)}
+   else{var count=Math.ceil(v.length/CH);meta.parts=count;b.set(ref,meta);for(var i=0;i<count;i++){var part={s:v.slice(i*CH,(i+1)*CH)};if(isOperationalKey(k))part.g=batchGeneration;b.set(F.doc(db,'data',k+'~p'+i),part)}}
   });
   if(!n)return;
   writeKeys.forEach(function(k){writing[k]=1});
@@ -3682,7 +3699,10 @@ function flush(){
    pend--;status()
   },function(e){
    writeKeys.forEach(function(k){delete writing[k]});
-   pend--;ks.forEach(function(k){delete last[k];dirty[k]=1});status('err');clearTimeout(tm);tm=setTimeout(flush,15000);
+   pend--;ks.forEach(function(k){
+    if(isOperationalKey(k)&&batchGeneration<clearGeneration){origSet.call(localStorage,k,'[]');last[k]='[]';delete dirty[k]}
+    else{delete last[k];dirty[k]=1}
+   });status('err');clearTimeout(tm);tm=setTimeout(flush,15000);
   });
  });
  inflight.push(p);p.then(function(){inflight=inflight.filter(function(x){return x!==p})});
@@ -3707,35 +3727,36 @@ L.clearOperationalData=function(){
  var names=['orders_v2','inventory_v2','deleted_orders_v1','activity_log_v1'];
  var allowed=/^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)(~p[0-9]+)?$/;
  return L.load().then(function(m){
-  var F=m.F;
-  /* Commit empty root markers first. They make the clear authoritative on every
-     device even if cleanup of old paginated chunks is interrupted. */
-  var markerBatch=F.writeBatch(db);
-  names.forEach(function(k){markerBatch.set(F.doc(db,'data',P+k),{v:'[]',parts:0,t:Date.now(),by:who})});
-  return markerBatch.commit().then(function(){
-   names.forEach(function(k){
-    var key=P+k;last[key]='[]';delete dirty[key];delete writing[key];
-   });
-   return F.getDocs(F.collection(db,'data')).then(function(snap){
-    var refs=[];
-    snap.forEach(function(d){
-     if(allowed.test(d.id)&&d.id.indexOf('~p')>=0)refs.push(F.doc(db,'data',d.id));
+  var F=m.F,genRef=F.doc(db,'meta','clear_generation');
+  return F.getDoc(genRef).then(function(genSnap){
+   var next=(genSnap.exists()?Number(genSnap.data().generation)||0:0)+1,now=Date.now();
+   var markerBatch=F.writeBatch(db);
+   markerBatch.set(genRef,{generation:next,t:now,by:who});
+   names.forEach(function(k){markerBatch.set(F.doc(db,'data',P+k),{v:'[]',parts:0,t:now,by:who,g:next})});
+   return markerBatch.commit().then(function(){
+    clearGeneration=next;
+    names.forEach(function(k){
+     var key=P+k;last[key]='[]';delete dirty[key];delete writing[key];
     });
-    var chain=Promise.resolve();
-    for(var i=0;i<refs.length;i+=450){
-     (function(batchRefs){
-      chain=chain.then(function(){
-       var b=F.writeBatch(db);
-       batchRefs.forEach(function(ref){b.delete(ref)});
-       return b.commit();
-      });
-     })(refs.slice(i,i+450));
-    }
-    return chain.then(function(){return true});
-   }).catch(function(){return false});
+    return F.getDocs(F.collection(db,'data')).then(function(snap){
+     var refs=[];
+     snap.forEach(function(d){
+      if(allowed.test(d.id)&&d.id.indexOf('~p')>=0)refs.push(F.doc(db,'data',d.id));
+     });
+     var chain=Promise.resolve();
+     for(var i=0;i<refs.length;i+=450){
+      (function(batchRefs){
+       chain=chain.then(function(){
+        var b=F.writeBatch(db);
+        batchRefs.forEach(function(ref){b.delete(ref)});
+        return b.commit();
+       });
+      })(refs.slice(i,i+450));
+     }
+     return chain.then(function(){return true});
+    }).catch(function(){return false});
+   }).then(function(chunksDeleted){return{chunksDeleted:chunksDeleted!==false}});
   });
- }).then(function(chunksDeleted){
-  return{chunksDeleted:chunksDeleted!==false};
  });
 };
 L.flushNow=function(){if(roleName==='owner')return Promise.resolve();flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
