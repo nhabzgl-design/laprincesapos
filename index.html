@@ -3463,9 +3463,11 @@ var cl=window.LPCloud&&window.LPCloud.enabled;
 if(cl&&!navigator.onLine){msg('Kailangan ng internet para mabura rin ang apat na data sa cloud. Walang mababago.');return}
 safety('before-clear');
 var TARGETS=['orders_v2','inventory_v2','deleted_orders_v1','activity_log_v1'];
-function wipeLocal(){
+function wipeLocal(result){
  TARGETS.forEach(function(n){localStorage.removeItem(P+n)});
- msg('Nabura na ang Sales, Inventory, Records at Activity Log. Nananatili ang accounts at lahat ng settings. Nagre-reload...');
+ msg(result&&result.chunksDeleted===false
+  ?'Nabura na ang apat na data sa device at cloud marker. May lumang cloud chunks na hindi pa nalilinis dahil sa connection; hindi na ito babalik sa POS. Ulitin ang Clear Data kapag stable ang internet.'
+  :'Nabura na ang Sales, Inventory, Records at Activity Log. Nananatili ang accounts at lahat ng settings. Nagre-reload...');
  setTimeout(function(){location.reload()},700);
 }
 if(cl){
@@ -3706,11 +3708,14 @@ L.clearOperationalData=function(){
  var allowed=/^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)(~p[0-9]+)?$/;
  return L.load().then(function(m){
   var F=m.F;
-  /* Publish empty root markers first. If chunk cleanup later fails, every device
-     still sees the clear marker instead of reviving stale data. */
+  /* Commit empty root markers first. They make the clear authoritative on every
+     device even if cleanup of old paginated chunks is interrupted. */
   var markerBatch=F.writeBatch(db);
   names.forEach(function(k){markerBatch.set(F.doc(db,'data',P+k),{v:'[]',parts:0,t:Date.now(),by:who})});
   return markerBatch.commit().then(function(){
+   names.forEach(function(k){
+    var key=P+k;last[key]='[]';delete dirty[key];delete writing[key];
+   });
    return F.getDocs(F.collection(db,'data')).then(function(snap){
     var refs=[];
     snap.forEach(function(d){
@@ -3726,14 +3731,11 @@ L.clearOperationalData=function(){
       });
      })(refs.slice(i,i+450));
     }
-    return chain;
-   });
+    return chain.then(function(){return true});
+   }).catch(function(){return false});
   });
- }).then(function(){
-  names.forEach(function(k){
-   var key=P+k;last[key]='[]';delete dirty[key];delete writing[key];
-  });
-  return true;
+ }).then(function(chunksDeleted){
+  return{chunksDeleted:chunksDeleted!==false};
  });
 };
 L.flushNow=function(){if(roleName==='owner')return Promise.resolve();flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
