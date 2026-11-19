@@ -3456,20 +3456,18 @@ function safety(tag){var o=pack(snapshot());try{localStorage.setItem('lpmeta_saf
 function validate(j){if(!j||typeof j!=='object'||j.app!=='La Princesa AquaSpin POS'||!j.data||typeof j.data!=='object')return'Hindi ito backup ng La Princesa POS.';var ks=Object.keys(j.data).filter(function(k){return k.indexOf(P)===0});if(!ks.length)return'Walang laman na data ang backup.';var arr=['orders_v2','deleted_orders_v1','customers_v2','services_v2','inventory_v2','expenses_v2'];for(var i=0;i<ks.length;i++){var v;try{v=JSON.parse(j.data[ks[i]])}catch(e){return'Sira ang data sa "'+ks[i]+'".'}if(arr.some(function(a){return ks[i]===P+a})&&!Array.isArray(v))return'Maling format: "'+ks[i]+'".'}try{var od=JSON.parse(j.data[P+'orders_v2']||'[]'),seen={};for(var q=0;q<od.length;q++){if(!od[q]||od[q].id==null||!isFinite(Number(od[q].total)))return'May sirang order record (#'+(q+1)+').';if(seen[od[q].id])return'May duplicate na order ID sa backup.';seen[od[q].id]=1}}catch(e){}if(j.checksum&&j.checksum!==hash(JSON.stringify(j.data)))return'Nabago o sira ang backup file (hindi tumugma ang checksum).';return''}
 function importFile(f){var r=new FileReader();r.onload=function(){var j;try{j=JSON.parse(r.result)}catch(e){msg('Hindi valid na JSON file.');return}var err=validate(j);if(err){msg('Hindi na-import: '+err);return}var restoreData=Object.assign({},j.data),readArray=function(raw){try{var a=JSON.parse(raw||'[]');return Array.isArray(a)?a:[]}catch(e){return[]}},currentDeleted=readArray(localStorage.getItem(P+'deleted_orders_v1')),backupDeleted=readArray(restoreData[P+'deleted_orders_v1']),mergedDeleted=[],seenDeleted={};currentDeleted.concat(backupDeleted).forEach(function(x){if(!x||x.id==null)return;var id=String(x.id);if(!seenDeleted[id]){seenDeleted[id]=1;mergedDeleted.push(x)}});restoreData[P+'deleted_orders_v1']=JSON.stringify(mergedDeleted);var currentDeleteLog=readArray(localStorage.getItem(P+'activity_log_v1')).filter(function(x){return x&&x.event==='order_deleted'}),backupLog=readArray(restoreData[P+'activity_log_v1']),mergedLog=[],seenLog={};currentDeleteLog.concat(backupLog).forEach(function(x){var key=String(x.transactionId||x.orderNo||'')+'|'+String(x.at||'')+'|'+String(x.event||'');if(!seenLog[key]){seenLog[key]=1;mergedLog.push(x)}});mergedLog.sort(function(a,b){return new Date(b.at||0)-new Date(a.at||0)});restoreData[P+'activity_log_v1']=JSON.stringify(mergedLog.slice(0,1000));var c=j.counts||{},cur=pack(snapshot()).counts;if(!confirm('I-RESTORE ang backup na ito?\n\nPetsa: '+(j.exportedAt||'?')+'\nBackup: '+(c.orders||0)+' orders, '+(c.customers||0)+' customers, '+(c.inventory||0)+' inventory\nKasalukuyan: '+cur.orders+' orders, '+cur.customers+' customers, '+cur.inventory+' inventory\n\nPapalitan ang LAHAT ng data. Gagawa muna ng safety backup.'))return;safety('before-restore');keys().forEach(function(k){localStorage.removeItem(k)});Object.keys(restoreData).filter(function(k){return k.indexOf(P)===0}).forEach(function(k){localStorage.setItem(k,restoreData[k])});msg('Na-restore. Nagre-reload...');setTimeout(function(){location.reload()},1200)};r.readAsText(f)}
 function clearAll(){
-if(!confirm('BURAHIN ang LAHAT: orders/jobs, sales, customers, inventory, expenses at services. Hindi mababago ang mga Machine. Gagawa muna ng safety backup file.'))return;
-if(!confirm('Sigurado ka na ba? Parang bagong install ang POS pagkatapos nito.'))return;
-var KEEP=P+'machines',cl=window.LPCloud&&window.LPCloud.enabled;
-if(cl&&!navigator.onLine){msg('Kailangan ng internet para mabura rin sa cloud. Subukan ulit kapag may net.');return}
+if(!window.__LP_IS_OWNER||!window.__LP_IS_OWNER()){msg('Owner account lang ang puwedeng mag-clear ng operational data.');return}
+if(!confirm('BURAHIN LAMANG ang Sales/Orders, Deleted Records, Inventory at Activity Log sa device at cloud. Customers, Expenses, Services, Machines, Owner/Staff accounts, printer settings at iba pang settings ay mananatiling buo. Gagawa muna ng safety backup.'))return;
+if(!confirm('Sigurado ka ba? Apat na operational data lamang ang buburahin. Hindi gagalawin ang Customers, Expenses, Services, Machines, accounts o printer settings.'))return;
+var cl=window.LPCloud&&window.LPCloud.enabled;
+if(cl&&!navigator.onLine){msg('Kailangan ng internet para maitala ang cloud clear generation. Walang mababago.');return}
 safety('before-clear');
 function wipeLocal(){
- var EMPTY=['orders_v2','customers_v2','inventory_v2','expenses_v2'].map(function(n){return P+n});
- keys().forEach(function(k){if(k!==KEEP)localStorage.removeItem(k)});
- EMPTY.forEach(function(k){localStorage.setItem(k,'[]')});
- try{var m=JSON.parse(localStorage.getItem(KEEP)||'null');if(Array.isArray(m)){m=m.map(function(x){var y={};for(var q in x)y[q]=x[q];y.status=(y.status==='In Use')?'Available':y.status;y.activeOrderId=null;y.activeOrderNo=null;y.load=0;return y});localStorage.setItem(KEEP,JSON.stringify(m))}}catch(e){}
- var os=Storage.prototype.setItem;Storage.prototype.setItem=function(k){if(typeof k==='string'&&k.indexOf(P)===0)return;return os.apply(this,arguments)};
- msg('Nabura na ang lahat maliban sa Machines. Nagre-reload...');var go=function(){location.reload()};if(cl)window.LPCloud.flushNow().then(go,go);else setTimeout(go,600);
+ ['orders_v2','deleted_orders_v1','inventory_v2','activity_log_v1'].forEach(function(n){localStorage.setItem(P+n,'[]')});
+ msg('Nabura ang Sales/Orders, Deleted Records, Inventory at Activity Log. Napanatili ang Customers, Expenses, Services, Machines, accounts at printer settings. Nagre-reload...');
+ setTimeout(function(){location.reload()},600);
 }
-if(cl){window.LPCloud.wipe(KEEP).then(wipeLocal,function(e){msg('Hindi nabura sa cloud, kaya walang nabago. '+window.LPCloud.msg(e))})}else wipeLocal();
+if(cl){window.LPCloud.wipe().then(wipeLocal,function(e){msg('Hindi natuloy ang cloud clear; walang local data na binura. '+window.LPCloud.msg(e))})}else wipeLocal();
 }
 setTimeout(function(){try{var n=cnt(snapshot(),P+'orders_v2'),lb=localStorage.getItem('lpmeta_lastBackup');if(n>0&&(!lb||Date.now()-new Date(lb).getTime()>7*864e5))msg('Paalala: mag-backup na (Settings → Export All Data).')}catch(e){}},4000);
 window.openSettings=function(){close();var o=document.createElement('div');o.id='set-ov';
@@ -3711,16 +3709,45 @@ function status(e){
 }
 window.addEventListener('online',function(){if(ready)status()});
 window.addEventListener('offline',function(){if(ready)status()});
-L.wipe=function(keep){
- return L.load().then(function(m){
-  var F=m.F;
-  return F.getDocs(F.collection(db,'data')).then(function(snap){
-   var b=F.writeBatch(db),n=0;
-   snap.forEach(function(d){var id=d.id,base=id.indexOf('~p')>=0?id.slice(0,id.indexOf('~p')):id;if(base!==keep){b.delete(F.doc(db,'data',id));n++}});
-   if(!n)return;
-   return Promise.race([b.commit(),new Promise(function(_,rj){setTimeout(function(){rj({code:'unavailable'})},10000)})]);
+L.wipe=function(){
+ if(!window.__LP_IS_OWNER||!window.__LP_IS_OWNER())return Promise.reject({code:'permission-denied'});
+ var allowed=['laPrincesa_orders_v2','laPrincesa_deleted_orders_v1','laPrincesa_inventory_v2','laPrincesa_activity_log_v1'];
+ var wasReady=ready;
+ ready=false;
+ clearTimeout(tm);
+ return Promise.all(inflight.slice().map(function(p){return p.catch(function(){})})).then(function(){
+  allowed.forEach(function(k){delete dirty[k]});
+  return L.load().then(function(m){
+   var F=m.F,metaRef=F.doc(db,'meta','clear_generation');
+   return F.getDocFromServer(metaRef).then(function(snap){
+    var next=snap.exists()?(Number(snap.data().generation)||0)+1:1;
+    var now=Date.now(),b=F.writeBatch(db);
+    b.set(metaRef,{generation:next,t:now,by:String(who||'owner')});
+    allowed.forEach(function(k){
+     b.set(F.doc(db,'data',k),{v:'[]',parts:0,t:now,by:String(who||'owner'),g:next});
+    });
+    return b.commit().then(function(){
+     clearGeneration=next;
+     allowed.forEach(function(k){
+      origSet.call(localStorage,k,'[]');
+      last[k]='[]';
+      delete dirty[k];
+      delete writing[k];
+     });
+     remotePending=false;
+     return next;
+    });
+   });
   });
- }).then(function(){last={};dirty={}});
+ }).then(function(next){
+  ready=wasReady;
+  if(ready&&Object.keys(dirty).length)flush();
+  return next;
+ },function(e){
+  ready=wasReady;
+  if(ready&&Object.keys(dirty).length)flush();
+  throw e;
+ });
 };
 L.flushNow=function(){flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
 L.syncNow=function(){return L.hydrate()};
