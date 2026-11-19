@@ -113,6 +113,24 @@ test("Staff writes with the current generation succeed; stale and untagged write
   await assertFails(setDoc(doc(staffDb(), "data", "laPrincesa_orders_v2"), {
     v: "[{\"old\":true}]", parts: 0, t: 5, by: "offline-cashier", g: 0
   }));
+
+  const owner = ownerDb();
+  const secondClear = writeBatch(owner);
+  secondClear.set(doc(owner, "meta", "clear_generation"), {
+    generation: 2, t: 6, by: "Sheena Marie Cuizon"
+  });
+  for (const key of ["orders_v2", "inventory_v2", "deleted_orders_v1", "activity_log_v1"]) {
+    secondClear.set(doc(owner, `data/laPrincesa_${key}`), {
+      v: "[]", parts: 0, t: 6, by: "Sheena Marie Cuizon", g: 2
+    });
+  }
+  await assertSucceeds(secondClear.commit());
+  await assertSucceeds(setDoc(doc(staffDb(), "data", "laPrincesa_orders_v2"), {
+    v: "[]", parts: 0, t: 7, by: "cashier", g: 2
+  }));
+  await assertFails(setDoc(doc(staffDb(), "data", "laPrincesa_orders_v2"), {
+    v: "[{\"stale\":true}]", parts: 0, t: 8, by: "offline-cashier", g: 1
+  }));
 });
 
 test("only Owner can remove obsolete operational chunks; root markers cannot be deleted", async () => {
