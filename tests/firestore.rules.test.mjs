@@ -79,7 +79,7 @@ test("Owner and Staff can read and write normal shared POS data", async () => {
 
 test("legacy Staff operational writes are accepted only before the first clear", async () => {
   await assertSucceeds(setDoc(doc(staffDb(), "data", "laPrincesa_orders_v2"), {
-    v: '[{"id":"legacy-order"}]', parts: 0, t: 1, by: "cashier"
+    v: "[]", parts: 0, t: 1, by: "cashier"
   }));
 });
 
