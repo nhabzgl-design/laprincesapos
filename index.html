@@ -3636,24 +3636,35 @@ window.addEventListener('online',function(){if(ready)status()});
 window.addEventListener('offline',function(){if(ready)status()});
 L.wipe=function(){
  var allowed=['laPrincesa_orders_v2','laPrincesa_deleted_orders_v1','laPrincesa_inventory_v2','laPrincesa_activity_log_v1'];
- return L.load().then(function(m){
-  var F=m.F;
-  return F.getDocs(F.collection(db,'data')).then(function(snap){
-   var targets=[];
-   snap.forEach(function(d){
-    var id=d.id,base=id.indexOf('~p')>=0?id.slice(0,id.indexOf('~p')):id;
-    if(allowed.indexOf(base)>=0)targets.push(d.ref);
+ var wasReady=ready;
+ ready=false;
+ clearTimeout(tm);
+ return Promise.all(inflight.slice()).then(function(){
+  allowed.forEach(function(k){delete dirty[k]});
+  return L.load().then(function(m){
+   var F=m.F;
+   return F.getDocs(F.collection(db,'data')).then(function(snap){
+    var targets=[];
+    snap.forEach(function(d){
+     var id=d.id,base=id.indexOf('~p')>=0?id.slice(0,id.indexOf('~p')):id;
+     if(allowed.indexOf(base)>=0)targets.push(d.ref);
+    });
+    var batches=[];
+    for(var i=0;i<targets.length;i+=450){
+     var b=F.writeBatch(db);
+     targets.slice(i,i+450).forEach(function(ref){b.delete(ref)});
+     batches.push(b.commit());
+    }
+    return Promise.all(batches);
    });
-   var batches=[];
-   for(var i=0;i<targets.length;i+=450){
-    var b=F.writeBatch(db);
-    targets.slice(i,i+450).forEach(function(ref){b.delete(ref)});
-    batches.push(b.commit());
-   }
-   return Promise.all(batches);
   });
  }).then(function(){
   allowed.forEach(function(k){last[k]=null;delete dirty[k]});
+  ready=wasReady;
+ },function(e){
+  ready=wasReady;
+  if(ready&&Object.keys(dirty).length)flush();
+  throw e;
  });
 };
 L.flushNow=function(){flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
