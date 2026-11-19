@@ -98,4 +98,6 @@ jobs:
           grep -q "function isOperationalKey" index.html
           grep -q "batchGeneration<clearGeneration" index.html
           grep -q "genUnsub=F.onSnapshot" index.html
-          echo "PWA, Firestore bridge, clear-generation barrier, role check, and printer hook checks passed."
+          grep -q "lpmeta_clear_generation_v1" index.html
+          grep -q "if(clearGeneration>localGeneration)" index.html
+          echo "PWA, Firestore bridge, local/cloud generation barrier, role check, and printer hook checks passed."
