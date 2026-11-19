@@ -3575,7 +3575,7 @@ L.role=function(user){
 L.hydrate=function(){
  return L.load().then(function(m){
   var F=m.F;
-  return Promise.all([F.getDoc(F.doc(db,'meta','clear_generation')),F.getDocs(F.collection(db,'data'))]).then(function(results){
+  return Promise.all([F.getDocFromServer(F.doc(db,'meta','clear_generation')),F.getDocsFromServer(F.collection(db,'data'))]).then(function(results){
    var genSnap=results[0],snap=results[1],cloudGeneration=genSnap.exists()?Number(genSnap.data().generation)||0:0;
    var localGeneration=Number(localStorage.getItem('lpmeta_clear_generation_v1')||0);
    if(cloudGeneration>localGeneration){
@@ -3587,6 +3587,7 @@ L.hydrate=function(){
    var ids=Object.keys(main),changed=false,bk={},dk=P+'deleted_orders_v1',ok=P+'orders_v2';
    ids.forEach(function(k){
     var d=main[k],v;
+    if(['orders_v2','inventory_v2','deleted_orders_v1','activity_log_v1'].indexOf(k.replace(P,''))>=0&&cloudGeneration>0&&Number(d.g)!==cloudGeneration)return;
     if(d.parts>0){v='';for(var i=0;i<d.parts;i++){var s=(parts[k]||{})[i];if(typeof s!=='string'){v=null;break}v+=s}}else v=d.v;
     if(typeof v==='string')remote[k]=v;
    });
@@ -3688,7 +3689,7 @@ L.clearOperationalData=function(){
    names.forEach(function(n){delete dirty[P+n];delete last[P+n]});
    return L.load().then(function(m){
     var F=m.F,genRef=F.doc(db,'meta','clear_generation');
-    return F.getDoc(genRef).then(function(genSnap){
+    return F.getDocFromServer(genRef).then(function(genSnap){
      var next=(genSnap.exists()?Number(genSnap.data().generation)||0:0)+1,now=Date.now(),batch=F.writeBatch(db);
      batch.set(genRef,{generation:next,t:now,by:who});
      names.forEach(function(n){batch.set(F.doc(db,'data',P+n),{v:'[]',parts:0,t:now,by:who,g:next})});
