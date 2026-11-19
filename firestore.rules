@@ -85,8 +85,9 @@ service cloud.firestore {
         (hasValidRole()
           && (!isClearableOperationalDoc(documentId)
             || (hasCurrentClearGeneration()
-              && !(request.resource.data.keys().hasAny(['v'])
-                && request.resource.data.v == '[]'))))
+              && (currentClearGeneration() == 0
+                || !(request.resource.data.keys().hasAny(['v'])
+                  && request.resource.data.v == '[]'))))
         || (isOwner()
           && documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)$')
           && isEmptyClearMarker());
