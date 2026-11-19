@@ -14,7 +14,7 @@ function section(startText, endText) {
 
 test("Owner Clear Data is restricted to the four approved local data keys", () => {
   const clear = section("function clearAll(){", "setTimeout(function(){try{var n=cnt(snapshot()");
-  assert.match(clear, /window\.__LP_IS_OWNER\s*\|\|\s*!window\.__LP_IS_OWNER\(\)/);
+  assert.match(clear, /!window\.__LP_IS_OWNER\s*\|\|\s*!window\.__LP_IS_OWNER\(\)/);
   assert.match(clear, /TARGETS=\['orders_v2','inventory_v2','deleted_orders_v1','activity_log_v1'\]/);
   const local = section("function wipeLocal(result)", "if(cl){");
   assert.match(local, /TARGETS\.forEach\(function\(n\)\{localStorage\.removeItem\(P\+n\)\}\)/);
