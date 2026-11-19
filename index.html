@@ -3729,24 +3729,42 @@ L.wipe=function(){
     });
     return b.commit().then(function(){
      clearGeneration=next;
+     origSet.call(localStorage,'lpmeta_clear_generation_v1',String(next));
      allowed.forEach(function(k){
-      origSet.call(localStorage,k,'[]');
+      origSet.call(localStorage,k.replace('laPrincesa_',P),'[]');
       last[k]='[]';
       delete dirty[k];
       delete writing[k];
      });
      remotePending=false;
-     return next;
+     return F.getDocs(F.collection(db,'data')).then(function(all){
+      var chunks=[];
+      all.forEach(function(d){
+       if(/^laPrincesa_(?:orders_v2|deleted_orders_v1|inventory_v2|activity_log_v1)~p[0-9]+$/.test(d.id))chunks.push(d.ref);
+      });
+      function removeBatch(offset){
+       if(offset>=chunks.length)return Promise.resolve();
+       var batch=F.writeBatch(db);
+       chunks.slice(offset,offset+450).forEach(function(ref){batch.delete(ref)});
+       return batch.commit().then(function(){return removeBatch(offset+450)});
+      }
+      return removeBatch(0).then(function(){return{generation:next,removedChunks:chunks.length}});
+     }).catch(function(e){
+      status('err');
+      return{generation:next,chunkCleanupPending:true,cleanupError:e&&e.code||'unknown'};
+     });
     });
    });
   });
- }).then(function(next){
+ }).then(function(result){
   ready=wasReady;
   if(ready&&Object.keys(dirty).length)flush();
-  return next;
+  status();
+  return result;
  },function(e){
   ready=wasReady;
   if(ready&&Object.keys(dirty).length)flush();
+  status('err');
   throw e;
  });
 };
