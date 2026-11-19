@@ -79,20 +79,22 @@ test("legacy Staff operational writes are accepted only before the first clear",
 });
 
 test("only Owner can atomically increment generation and publish the four empty markers", async () => {
-  const batch = writeBatch(ownerDb());
+  const owner = ownerDb();
+  const batch = writeBatch(owner);
   const next = 1;
-  batch.set(doc(ownerDb(), "meta", "clear_generation"), {
+  batch.set(doc(owner, "meta", "clear_generation"), {
     generation: next, t: 2, by: "Sheena Marie Cuizon"
   });
   for (const key of ["orders_v2", "inventory_v2", "deleted_orders_v1", "activity_log_v1"]) {
-    batch.set(doc(ownerDb(), "data", `laPrincesa_${key}`), {
+    batch.set(doc(owner, "data", `laPrincesa_${key}`), {
       v: "[]", parts: 0, t: 2, by: "Sheena Marie Cuizon", g: next
     });
   }
   await assertSucceeds(batch.commit());
 
-  const staffBatch = writeBatch(staffDb());
-  staffBatch.set(doc(staffDb(), "meta", "clear_generation"), {
+  const staff = staffDb();
+  const staffBatch = writeBatch(staff);
+  staffBatch.set(doc(staff, "meta", "clear_generation"), {
     generation: 2, t: 3, by: "cashier"
   });
   await assertFails(staffBatch.commit());
