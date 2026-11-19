@@ -3716,6 +3716,7 @@ L.wipe=function(){
  ready=false;
  clearTimeout(tm);
  return Promise.all(inflight.slice().map(function(p){return p.catch(function(){})})).then(function(){
+  inflight=[];
   allowed.forEach(function(k){delete dirty[k]});
   return L.load().then(function(m){
    var F=m.F,metaRef=F.doc(db,'meta','clear_generation');
