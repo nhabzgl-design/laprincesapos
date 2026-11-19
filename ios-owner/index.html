@@ -3429,10 +3429,7 @@ window.printReceiptOnly=async function(){
    var printBase='<style>html,body{display:block!important;margin:0!important;padding:0!important;width:'+receiptWidth+'px!important;min-width:'+receiptWidth+'px!important;max-width:'+receiptWidth+'px!important;background:#fff!important;color:#000!important;overflow:visible!important}#lp-print-root{display:block!important;width:'+receiptWidth+'px!important;min-width:'+receiptWidth+'px!important;max-width:'+receiptWidth+'px!important;margin:0!important;padding:0!important;background:#fff!important;color:#000!important;overflow:visible!important;position:static!important;transform:none!important}#lp-print-root *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}</style>';
    var html='<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width='+receiptWidth+', initial-scale=1, maximum-scale=1">'+
     '<style>'+appStyles+'</style>'+printBase+
-    '</head><body><div id="lp-print-root">'+receiptClone.outerHTML+'</div>
-
-
-</body></html>';
+    '</head><body><div id="lp-print-root">'+receiptClone.outerHTML+'</div>\n\n\n</body></html>';
    var encoded=btoa(unescape(encodeURIComponent(html)));
    var ok=!!window.NativePrinter.printHtmlBase64(encoded,receiptWidth);
    if(!ok){toast('Hindi naipadala ang formatted receipt. Suriin ang printer connection.');return false}
