@@ -3539,7 +3539,7 @@ L.role=function(user){
 L.hydrate=function(){
  return L.load().then(function(m){
   var F=m.F;
-  return Promise.all([F.getDoc(F.doc(db,'meta','clear_generation')),F.getDocs(F.collection(db,'data'))]).then(function(results){
+  return Promise.all([F.getDocFromServer(F.doc(db,'meta','clear_generation')),F.getDocsFromServer(F.collection(db,'data'))]).then(function(results){
    var genSnap=results[0],snap=results[1];
    clearGeneration=genSnap.exists()?Number(genSnap.data().generation)||0:0;
    var localGeneration=Number(localStorage.getItem('lpmeta_clear_generation_v1')||0);
@@ -3552,6 +3552,7 @@ L.hydrate=function(){
    var ids=Object.keys(main),changed=false,bk={},dk=P+'deleted_orders_v1',ok=P+'orders_v2';
    ids.forEach(function(k){
     var d=main[k],v;
+    if(isOperationalKey(k)&&clearGeneration>0&&Number(d.g)!==clearGeneration)return;
     if(d.parts>0){v='';for(var i=0;i<d.parts;i++){var s=(parts[k]||{})[i];if(typeof s!=='string'){v=null;break}v+=s}}else v=d.v;
     if(typeof v==='string')remote[k]=v;
    });
@@ -3635,6 +3636,7 @@ L.watch=function(){
    });
    Object.keys(main).forEach(function(k){
     var d=main[k],v;
+    if(isOperationalKey(k)&&clearGeneration>0&&Number(d.g)!==clearGeneration)return;
     if(d.parts>0){
      v='';
      for(var i=0;i<d.parts;i++){
