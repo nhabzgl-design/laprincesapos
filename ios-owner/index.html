@@ -3703,7 +3703,7 @@ L.clearOperationalData=function(){
         chain=chain.then(function(){var b=F.writeBatch(db);group.forEach(function(r){b.delete(r)});return b.commit()});
        })(refs.slice(i,i+450));
        return chain.then(function(){return{chunksDeleted:true}},function(){return{chunksDeleted:false}});
-      }).catch(function(){return{chunksDeleted:false}}).then(function(result){clearing=false;status();return result});
+      }).catch(function(){return{chunksDeleted:false}}).then(function(result){status();return result});
      });
     });
    }).catch(function(e){clearing=false;status('err');throw e});
