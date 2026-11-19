@@ -2,7 +2,7 @@ name: Build Native APK
 
 on:
   push:
-    branches: [ main, fix-main-apk-workflow ]
+    branches: [ main, fix-main-apk-workflow, lp-production-clear-data-fix ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
