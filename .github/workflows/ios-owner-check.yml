@@ -48,7 +48,8 @@ jobs:
                   if tag.lower() == "script":
                       attrs = dict(attrs)
                       self.capture = True
-                      self.external = "src" in attrs
+                      script_type = attrs.get("type", "").lower().split(";")[0].strip()
+                      self.external = "src" in attrs or script_type in ("application/json", "application/ld+json", "importmap")
                       self.parts = []
               def handle_data(self, data):
                   if self.capture and not self.external:
