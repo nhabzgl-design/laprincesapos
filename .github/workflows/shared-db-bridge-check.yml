@@ -7,6 +7,7 @@ on:
       - owner-monitoring-staging
     paths:
       - "index.html"
+      - "tests/clear-data-source.test.mjs"
       - "owner.html"
       - "owner.webmanifest"
       - "sw.js"
@@ -18,6 +19,7 @@ on:
   pull_request:
     paths:
       - "index.html"
+      - "tests/clear-data-source.test.mjs"
       - "sw.js"
       - "firebase-config.js"
       - "firestore.rules"
@@ -122,4 +124,5 @@ jobs:
           grep -q "cp firebase-config.js app/src/main/assets/firebase-config.js" .github/workflows/build-apk.yml
           grep -q "test -s app/src/main/assets/firebase-config.js" .github/workflows/build-apk.yml
           grep -q "printHtmlBase64" index.html
-          echo "PWA, Firestore bridge, role check, and printer hook checks passed."
+          node --test tests/clear-data-source.test.mjs
+          echo "PWA, Firestore bridge, Clear Data regression, role check, and printer hook checks passed."
