@@ -83,6 +83,15 @@ jobs:
           PY
       - name: Build installable debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Verify debug APK package, alignment and signature
+        run: |
+          BT="$ANDROID_HOME/build-tools/34.0.0"
+          APK="$(find app/build/outputs/apk/debug -name '*.apk' -print -quit)"
+          test -n "$APK"
+          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.laprincesa.pos'"
+          "$BT/zipalign" -c -v 4 "$APK"
+          "$BT/apksigner" verify --verbose "$APK"
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -136,6 +145,16 @@ jobs:
           arch: x86_64
           profile: pixel_2
           script: adb install -r app/build/outputs/apk/release/app-release.apk
+      - name: Verify signed release APK package, alignment and signature
+        if: steps.signing.outputs.available == 'true'
+        run: |
+          BT="$ANDROID_HOME/build-tools/34.0.0"
+          APK="$(find app/build/outputs/apk/release -name '*.apk' -print -quit)"
+          test -n "$APK"
+          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.laprincesa.pos'"
+          "$BT/zipalign" -c -v 4 "$APK"
+          "$BT/apksigner" verify --verbose "$APK"
+
       - name: Upload signed release APK
         if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@v4
