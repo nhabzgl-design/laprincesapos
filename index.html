@@ -3462,8 +3462,7 @@ var KEEP=P+'machines',cl=window.LPCloud&&window.LPCloud.enabled;
 if(cl&&!navigator.onLine){msg('Kailangan ng internet para mabura rin sa cloud. Subukan ulit kapag may net.');return}
 safety('before-clear');
 function wipeLocal(){
- var EMPTY=['orders_v2','customers_v2','inventory_v2','expenses_v2'].map(function(n){return P+n});
- keys().forEach(function(k){if(k!==KEEP)localStorage.removeItem(k)});
+ var EMPTY=['orders_v2','deleted_orders_v1','inventory_v2','activity_log_v1'].map(function(n){return P+n});
  EMPTY.forEach(function(k){localStorage.setItem(k,'[]')});
  try{var m=JSON.parse(localStorage.getItem(KEEP)||'null');if(Array.isArray(m)){m=m.map(function(x){var y={};for(var q in x)y[q]=x[q];y.status=(y.status==='In Use')?'Available':y.status;y.activeOrderId=null;y.activeOrderNo=null;y.load=0;return y});localStorage.setItem(KEEP,JSON.stringify(m))}}catch(e){}
  var os=Storage.prototype.setItem;Storage.prototype.setItem=function(k){if(typeof k==='string'&&k.indexOf(P)===0)return;return os.apply(this,arguments)};
@@ -3636,16 +3635,27 @@ function status(e){
 }
 window.addEventListener('online',function(){if(ready)status()});
 window.addEventListener('offline',function(){if(ready)status()});
-L.wipe=function(keep){
+L.wipe=function(){
+ var allowed=['laPrincesa_orders_v2','laPrincesa_deleted_orders_v1','laPrincesa_inventory_v2','laPrincesa_activity_log_v1'];
  return L.load().then(function(m){
   var F=m.F;
   return F.getDocs(F.collection(db,'data')).then(function(snap){
-   var b=F.writeBatch(db),n=0;
-   snap.forEach(function(d){var id=d.id,base=id.indexOf('~p')>=0?id.slice(0,id.indexOf('~p')):id;if(base!==keep){b.delete(F.doc(db,'data',id));n++}});
-   if(!n)return;
-   return Promise.race([b.commit(),new Promise(function(_,rj){setTimeout(function(){rj({code:'unavailable'})},10000)})]);
+   var targets=[];
+   snap.forEach(function(d){
+    var id=d.id,base=id.indexOf('~p')>=0?id.slice(0,id.indexOf('~p')):id;
+    if(allowed.indexOf(base)>=0)targets.push(d.ref);
+   });
+   var batches=[];
+   for(var i=0;i<targets.length;i+=450){
+    var b=F.writeBatch(db);
+    targets.slice(i,i+450).forEach(function(ref){b.delete(ref)});
+    batches.push(b.commit());
+   }
+   return Promise.all(batches);
   });
- }).then(function(){last={};dirty={}});
+ }).then(function(){
+  allowed.forEach(function(k){last[k]=null;delete dirty[k]});
+ });
 };
 L.flushNow=function(){flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
 L.syncNow=function(){return L.hydrate()};
