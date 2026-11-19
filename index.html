@@ -3560,7 +3560,8 @@ L.hydrate=function(){
    }
    function arr(raw){try{var x=JSON.parse(raw||'[]');return Array.isArray(x)?x:[]}catch(e){return[]}}
    var localDeleted=arr(localStorage.getItem(dk)),cloudDeleted=arr(remote[dk]),mergedDeleted=[],seenDeleted={};
-   localDeleted.concat(cloudDeleted).forEach(function(x){
+   /* A cloud-side empty archive is the Clear Data marker; do not merge stale device copies back into it. */
+   (remote[dk]==='[]'?cloudDeleted:localDeleted.concat(cloudDeleted)).forEach(function(x){
     if(!x||x.id==null){mergedDeleted.push(x);return}
     var id=String(x.id);
     if(!seenDeleted[id]){seenDeleted[id]=1;mergedDeleted.push(x)}
@@ -3701,6 +3702,7 @@ window.addEventListener('online',function(){if(ready)status()});
 window.addEventListener('offline',function(){if(ready)status()});
 L.clearOperationalData=function(){
  if(roleName!=='owner')return Promise.reject({code:'permission-denied'});
+ var names=['orders_v2','inventory_v2','deleted_orders_v1','activity_log_v1'];
  var allowed=/^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)(~p[0-9]+)?$/;
  return L.load().then(function(m){
   var F=m.F;
@@ -3717,11 +3719,17 @@ L.clearOperationalData=function(){
      });
     })(refs.slice(i,i+450));
    }
-   return chain;
+   return chain.then(function(){
+    /* Keep explicit empty cloud documents so every device receives the clear.
+       Deleting documents alone lets stale staff-device copies upload themselves again. */
+    var b=F.writeBatch(db);
+    names.forEach(function(k){b.set(F.doc(db,'data',P+k),{v:'[]',parts:0,t:Date.now(),by:who})});
+    return b.commit();
+   });
   });
  }).then(function(){
-  ['orders_v2','inventory_v2','deleted_orders_v1','activity_log_v1'].forEach(function(k){
-   var key=P+k;delete last[key];delete dirty[key];delete writing[key];
+  names.forEach(function(k){
+   var key=P+k;last[key]='[]';delete dirty[key];delete writing[key];
   });
   return true;
  });
