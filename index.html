@@ -3471,7 +3471,7 @@ if(cl){window.LPCloud.wipe().then(wipeLocal,function(e){msg('Hindi natuloy ang c
 }
 setTimeout(function(){try{var n=cnt(snapshot(),P+'orders_v2'),lb=localStorage.getItem('lpmeta_lastBackup');if(n>0&&(!lb||Date.now()-new Date(lb).getTime()>7*864e5))msg('Paalala: mag-backup na (Settings → Export All Data).')}catch(e){}},4000);
 window.openSettings=function(){close();var o=document.createElement('div');o.id='set-ov';
- o.innerHTML='<div id="set-box"><h3>⚙️ Settings</h3><button class="sb" id="s-exp">⬇️ Export All Data (Backup .json)</button><small>Ise-save ang lahat ng orders, customers, inventory, expenses, machines.</small><button class="sb" id="s-imp">⬆️ Import Backup File (.json)</button><input type="file" id="s-file" accept=".json,application/json" style="display:none"><button class="sb red" id="s-clr">🗑 Clear Data from this Device</button><button class="sb" id="s-x">Close</button><div id="set-foot">Created by Nhabz GL<button class="sb" id="s-fb" style="text-align:center;margin-top:8px">Facebook Link</button></div></div>';
+ o.innerHTML='<div id="set-box"><h3>⚙️ Settings</h3><button class="sb" id="s-exp">⬇️ Export All Data (Backup .json)</button><small>Ise-save ang lahat ng orders, customers, inventory, expenses, machines.</small><button class="sb" id="s-imp">⬆️ Import Backup File (.json)</button><input type="file" id="s-file" accept=".json,application/json" style="display:none"><button class="sb red" id="s-clr">🗑 Clear Operational Data (Owner Only)</button><button class="sb" id="s-x">Close</button><div id="set-foot">Created by Nhabz GL<button class="sb" id="s-fb" style="text-align:center;margin-top:8px">Facebook Link</button></div></div>';
  document.body.appendChild(o);
  o.addEventListener('click',function(e){if(e.target===o)close()});
  
