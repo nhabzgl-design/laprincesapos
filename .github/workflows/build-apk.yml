@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main, fix-main-apk-workflow ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, lp-production-clear-data-fix ]
   workflow_dispatch:
 
 permissions:
