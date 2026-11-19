@@ -3706,25 +3706,27 @@ L.clearOperationalData=function(){
  var allowed=/^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)(~p[0-9]+)?$/;
  return L.load().then(function(m){
   var F=m.F;
-  return F.getDocs(F.collection(db,'data')).then(function(snap){
-   var refs=[];
-   snap.forEach(function(d){if(allowed.test(d.id))refs.push(F.doc(db,'data',d.id))});
-   var chain=Promise.resolve();
-   for(var i=0;i<refs.length;i+=450){
-    (function(batchRefs){
-     chain=chain.then(function(){
-      var b=F.writeBatch(db);
-      batchRefs.forEach(function(ref){b.delete(ref)});
-      return b.commit();
-     });
-    })(refs.slice(i,i+450));
-   }
-   return chain.then(function(){
-    /* Keep explicit empty cloud documents so every device receives the clear.
-       Deleting documents alone lets stale staff-device copies upload themselves again. */
-    var b=F.writeBatch(db);
-    names.forEach(function(k){b.set(F.doc(db,'data',P+k),{v:'[]',parts:0,t:Date.now(),by:who})});
-    return b.commit();
+  /* Publish empty root markers first. If chunk cleanup later fails, every device
+     still sees the clear marker instead of reviving stale data. */
+  var markerBatch=F.writeBatch(db);
+  names.forEach(function(k){markerBatch.set(F.doc(db,'data',P+k),{v:'[]',parts:0,t:Date.now(),by:who})});
+  return markerBatch.commit().then(function(){
+   return F.getDocs(F.collection(db,'data')).then(function(snap){
+    var refs=[];
+    snap.forEach(function(d){
+     if(allowed.test(d.id)&&d.id.indexOf('~p')>=0)refs.push(F.doc(db,'data',d.id));
+    });
+    var chain=Promise.resolve();
+    for(var i=0;i<refs.length;i+=450){
+     (function(batchRefs){
+      chain=chain.then(function(){
+       var b=F.writeBatch(db);
+       batchRefs.forEach(function(ref){b.delete(ref)});
+       return b.commit();
+      });
+     })(refs.slice(i,i+450));
+    }
+    return chain;
    });
   });
  }).then(function(){
