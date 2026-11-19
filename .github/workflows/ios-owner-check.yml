@@ -88,3 +88,6 @@ jobs:
           ! grep -q "serviceAccount\|private_key" ios-owner/firebase-config.js
           grep -q "lpmeta_clear_generation_v1" ios-owner/index.html
           grep -q "cloudGeneration>localGeneration" ios-owner/index.html
+          grep -q "getDocsFromServer" ios-owner/index.html
+          grep -q "getDocFromServer" ios-owner/index.html
+          grep -q "Number(d.g)!==cloudGeneration" ios-owner/index.html
