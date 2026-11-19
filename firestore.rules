@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function rolePath(uid) {
+      return /databases/$(database)/documents/roles/$(uid);
+    }
+
+    function hasValidRole() {
+      return signedIn()
+        && exists(rolePath(request.auth.uid))
+        && get(rolePath(request.auth.uid)).data.role in ['owner', 'staff'];
+    }
+
+    function isOwner() {
+      return signedIn()
+        && exists(rolePath(request.auth.uid))
+        && get(rolePath(request.auth.uid)).data.role == 'owner';
+    }
+
+    function isStaff() {
+      return signedIn()
+        && exists(rolePath(request.auth.uid))
+        && get(rolePath(request.auth.uid)).data.role == 'staff';
+    }
+
+    function clearGenerationPath() {
+      return /databases/$(database)/documents/meta/clear_generation;
+    }
+
+    function currentClearGeneration() {
+      return exists(clearGenerationPath())
+        ? get(clearGenerationPath()).data.generation
+        : 0;
+    }
+
+    // Old clients remain compatible only until the first Owner clear.
+    // After that, every Staff write to the four operational key families
+    // must carry the current generation; queued offline writes become stale.
+    function hasCurrentClearGeneration() {
+      return request.resource.data.keys().hasAny(['g'])
+        ? request.resource.data.g == currentClearGeneration()
+        : currentClearGeneration() == 0;
+    }
+
+    function isValidClearGenerationDoc() {
+      return request.resource.data.keys().hasAll(['generation', 't', 'by'])
+        && request.resource.data.keys().hasOnly(['generation', 't', 'by'])
+        && request.resource.data.generation is int
+        && request.resource.data.t is number
+        && request.resource.data.by is string;
+    }
+
+    // The first Owner role must be created manually by the Firebase project
+    // administrator after creating the Owner's Firebase Authentication user.
+    // Never permit an arbitrary first authenticated user to claim Owner.
+    match /roles/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isOwner());
+      allow list: if isOwner();
+      allow create: if isOwner()
+        && request.resource.data.role == 'staff';
+      allow update: if isOwner()
+        && resource.data.role == 'staff'
+        && request.resource.data.role == 'staff';
+      allow delete: if isOwner()
+        && resource.data.role == 'staff';
+    }
+
+    // Only these four operational data documents and their chunk documents
+    // are in the Owner Clear Data scope.
+    function isClearableOperationalDoc(documentId) {
+      return documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)(~p[0-9]+)?$');
+    }
+
+    // Owner's empty markers must be committed atomically with the next
+    // generation so Staff clients cannot replay older offline writes.
+    function isEmptyClearMarker() {
+      return request.resource.data.keys().hasAll(['v', 'parts', 't', 'by', 'g'])
+        && request.resource.data.keys().hasOnly(['v', 'parts', 't', 'by', 'g'])
+        && request.resource.data.v == '[]'
+        && request.resource.data.parts == 0
+        && request.resource.data.t is number
+        && request.resource.data.by is string
+        && request.resource.data.g is int
+        && request.resource.data.g == getAfter(clearGenerationPath()).data.generation;
+    }
+
+    match /data/{documentId} {
+      allow read: if hasValidRole();
+      allow create, update: if (isStaff()
+          && (!isClearableOperationalDoc(documentId) || hasCurrentClearGeneration()))
+        || (isOwner() && isClearableOperationalDoc(documentId) && isEmptyClearMarker());
+      // Owner only removes obsolete chunks. Root markers stay in place as the
+      // durable clear barrier for devices that reconnect later.
+      allow delete: if (isStaff() && !isClearableOperationalDoc(documentId))
+        || (isOwner() && documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)~p[0-9]+$'));
+    }
+
+    match /meta/{documentId} {
+      allow get: if documentId == 'clear_generation' && hasValidRole();
+      allow list: if false;
+      allow create: if documentId == 'clear_generation'
+        && isOwner()
+        && isValidClearGenerationDoc()
+        && request.resource.data.generation == 1;
+      allow update: if documentId == 'clear_generation'
+        && isOwner()
+        && isValidClearGenerationDoc()
+        && request.resource.data.generation == resource.data.generation + 1;
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

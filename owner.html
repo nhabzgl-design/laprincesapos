@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="tl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#160b3a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="La Princesa Owner">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="owner.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>La Princesa — Owner Monitor</title>
+<style>
+:root{color-scheme:dark;--bg:#100827;--panel:#211342;--line:#ffffff20;--muted:#c8bddd;--pink:#ef4caa;--purple:#9361ff}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(70% 50% at 10% 0%,#55246f 0,transparent 65%),linear-gradient(155deg,#100827,#17103c 65%,#081b35);color:#fff;font:15px system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+button,input{font:inherit}.wrap{max-width:1100px;margin:auto;padding:calc(18px + env(safe-area-inset-top)) 16px calc(28px + env(safe-area-inset-bottom))}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px}.brand{display:flex;align-items:center;gap:12px}.brand img{width:48px;height:48px;border-radius:50%;background:#fff;object-fit:contain}.brand h1{font-size:17px;margin:0;font-weight:850}.brand p{margin:3px 0 0;color:var(--muted);font-size:11px}.actions{display:flex;gap:8px}.btn{border:1px solid var(--line);border-radius:12px;padding:10px 13px;background:#ffffff12;color:white;font-weight:700}.btn.primary{background:linear-gradient(120deg,var(--pink),var(--purple));border:0}
+.panel{background:#ffffff0d;border:1px solid var(--line);border-radius:18px;padding:16px;backdrop-filter:blur(12px);box-shadow:0 12px 35px #0003}.login{max-width:410px;margin:8vh auto}.login h2{margin:0 0 6px}.muted{color:var(--muted)}label{display:block;font-size:12px;font-weight:700;margin:14px 0 6px}input{width:100%;padding:13px;border-radius:12px;border:1px solid var(--line);background:#0b0820;color:#fff;outline:none}input:focus{border-color:var(--pink)}.error{color:#ffb5cf;min-height:20px;font-size:13px;margin-top:10px}
+#app[hidden],#login[hidden]{display:none}.status{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:7px}.dot{width:8px;height:8px;border-radius:50%;background:#43d49b}.dot.off{background:#f6b84a}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0}.metric{min-height:112px}.metric .label{font-size:12px;color:var(--muted)}.metric .value{font-size:clamp(20px,3vw,28px);font-weight:850;margin-top:8px;letter-spacing:-.5px}.metric .sub{font-size:11px;color:var(--muted);margin-top:4px}
+.section{margin-top:14px}.section h2{font-size:16px;margin:0 0 12px}.split{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.rows{display:grid;gap:8px}.item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}.item strong{display:block;font-size:13px}.item small{display:block;color:var(--muted);font-size:11px;margin-top:3px}.amount{font-weight:800;white-space:nowrap}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:4px 8px;font-size:10px;color:#f6d4eb}.empty{color:var(--muted);font-size:13px;padding:12px 0}.foot{font-size:11px;color:var(--muted);text-align:center;margin:18px 0 0}
+@media(max-width:700px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.metric{min-height:100px;padding:13px}.split{grid-template-columns:1fr}.brand h1{font-size:15px}.actions .btn{padding:9px 10px;font-size:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><div class="brand"><img src="apple-touch-icon.png" alt=""><div><h1>La Princesa Owner Monitor</h1><p>Live business overview • Read only</p></div></div><div class="actions"><button class="btn" id="refresh" hidden>Refresh</button><button class="btn" id="logout" hidden>Logout</button></div></header>
+<section id="login" class="panel login"><h2>Owner Login</h2><p class="muted">Para kay Sheena Marie Cuizon. Monitoring lang — walang sales o inventory editing dito.</p><form id="loginForm"><label for="email">Owner email</label><input id="email" type="email" autocomplete="username" required placeholder="Owner email"><label for="password">Password</label><input id="password" type="password" autocomplete="current-password" required placeholder="Password"><button class="btn primary" style="width:100%;margin-top:16px" id="signIn">Sign in</button></form><div class="error" id="loginError" role="alert"></div></section>
+<section id="app" hidden>
+<div class="status"><span class="dot" id="dot"></span><span id="syncText">Connecting…</span><span id="ownerName" style="margin-left:auto"></span></div>
+<div class="grid">
+<div class="panel metric"><div class="label">Net Sales Today</div><div class="value" id="todayNet">₱0.00</div><div class="sub">Paid orders less discounts/refunds</div></div>
+<div class="panel metric"><div class="label">Collections Today</div><div class="value" id="todayCollections">₱0.00</div><div class="sub">Payments actually received</div></div>
+<div class="panel metric"><div class="label">Expenses Today</div><div class="value" id="todayExpenses">₱0.00</div><div class="sub">Recorded expenses</div></div>
+<div class="panel metric"><div class="label">Outstanding Balance</div><div class="value" id="balance">₱0.00</div><div class="sub">Unpaid and partially paid orders</div></div>
+<div class="panel metric"><div class="label">Orders Today</div><div class="value" id="todayOrders">0</div><div class="sub">Paid orders</div></div>
+<div class="panel metric"><div class="label">Active Orders</div><div class="value" id="activeOrders">0</div><div class="sub">Pending / In Progress / Ready</div></div>
+<div class="panel metric"><div class="label">Low Stock Items</div><div class="value" id="lowStock">0</div><div class="sub">At or below minimum stock</div></div>
+<div class="panel metric"><div class="label">Customers</div><div class="value" id="customers">0</div><div class="sub">Saved customer records</div></div>
+</div>
+<div class="split">
+<div class="panel section"><h2>Recent Orders</h2><div class="rows" id="recentOrders"></div></div>
+<div class="panel section"><h2>Order Status</h2><div class="rows" id="statusCounts"></div><h2 style="margin-top:18px">Low Stock Watch</h2><div class="rows" id="lowStockList"></div></div>
+</div>
+<div class="panel section"><h2>Latest Expenses</h2><div class="rows" id="recentExpenses"></div></div>
+</section>
+<p class="foot">La Princesa Aquaspin Laundry Hub • Owner monitoring only • No printer / cash drawer controls</p>
+</div>
+<script src="./firebase-config.js"></script>
+<script type="module">
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+import {getAuth,onAuthStateChanged,signInWithEmailAndPassword,signOut} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+import {getFirestore,doc,getDoc,collection,onSnapshot} from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+const $=id=>document.getElementById(id),cfg=window.LP_FIREBASE||{};
+let app,auth,db,unsubscribe=null,records={},userRole=null;
+const money=n=>'₱'+(Math.round((Number(n)||0)*100)/100).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const arr=k=>{try{const x=JSON.parse(records['laPrincesa_'+k]||'[]');return Array.isArray(x)?x:[]}catch{return[]}};
+const day=d=>{if(!d)return false;const x=new Date(d),n=new Date();return Number.isFinite(x.getTime())&&x.toDateString()===n.toDateString()};
+const fin=o=>{const total=Number(o.total)||0,collected=Math.min(Math.max(0,o.collected!=null?Number(o.collected):Math.min(Number(o.paid)||0,total)),total);return{total,collected,balance:Math.round((total-collected)*100)/100,status:total<=0||total-collected<=.004?'Paid':collected<=0?'Unpaid':'Partial',refunded:Number(o.refunded)||0}};
+const paidAt=o=>{const ts=(Array.isArray(o.payments)?o.payments:[]).map(p=>p&&p.at?new Date(p.at).getTime():NaN).filter(Number.isFinite);return ts.length?new Date(Math.max(...ts)).toISOString():o.date};
+function setText(id,v){$(id).textContent=v}
+function render(){
+ const orders=arr('orders_v2').filter(x=>x&&!x.deletedAt),expenses=arr('expenses_v2'),inventory=arr('inventory_v2'),customers=arr('customers_v2');
+ const paid=orders.filter(x=>fin(x).status==='Paid'),todayPaid=paid.filter(x=>day(paidAt(x)));
+ const todayNet=todayPaid.reduce((s,x)=>s+fin(x).total-fin(x).refunded,0);
+ const todayCollections=orders.reduce((s,x)=>s+(Array.isArray(x.payments)?x.payments:fin(x).collected>0?[{amount:fin(x).collected,at:x.date}]:[]).reduce((z,p)=>z+(day(p.at)?Number(p.amount)||0:0),0),0);
+ const todayExpenses=expenses.filter(x=>day(x.date)).reduce((s,x)=>s+(Number(x.amount)||0),0);
+ const balance=orders.reduce((s,x)=>s+fin(x).balance,0);
+ const active=orders.filter(x=>['Pending','In Progress','Ready'].includes(x.status));
+ const low=inventory.filter(x=>Number(x.stock)<=Number(x.min));
+ setText('todayNet',money(todayNet));setText('todayCollections',money(todayCollections));setText('todayExpenses',money(todayExpenses));setText('balance',money(balance));
+ setText('todayOrders',todayPaid.length);setText('activeOrders',active.length);setText('lowStock',low.length);setText('customers',customers.length);
+ const recent=[...orders].sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)).slice(0,8);
+ $('recentOrders').innerHTML=recent.length?recent.map(x=>'<div class="item"><div><strong>'+escapeHtml(x.orderNo||x.id||'Order')+' • '+escapeHtml(x.customerName||x.customer||x.name||'Customer')+'</strong><small>'+escapeHtml(x.status||'—')+' • '+escapeHtml(x.date?new Date(x.date).toLocaleString():'Date unavailable')+'</small></div><span class="amount">'+money(x.total)+'</span></div>').join(''):'<div class="empty">Wala pang order records.</div>';
+ const counts=['Pending','In Progress','Ready','Claimed','Cancelled'].map(st=>({st,n:orders.filter(x=>x.status===st).length}));
+ $('statusCounts').innerHTML=counts.map(x=>'<div class="item"><strong>'+x.st+'</strong><span class="pill">'+x.n+'</span></div>').join('');
+ $('lowStockList').innerHTML=low.length?low.slice(0,6).map(x=>'<div class="item"><div><strong>'+escapeHtml(x.name||'Item')+'</strong><small>Minimum: '+(Number(x.min)||0)+'</small></div><span class="amount">'+(Number(x.stock)||0)+' left</span></div>').join(''):'<div class="empty">Walang low-stock alert.</div>';
+ const exp=[...expenses].sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)).slice(0,5);
+ $('recentExpenses').innerHTML=exp.length?exp.map(x=>'<div class="item"><div><strong>'+escapeHtml(x.category||x.name||'Expense')+'</strong><small>'+escapeHtml(x.date?new Date(x.date).toLocaleDateString():'Date unavailable')+'</small></div><span class="amount">'+money(x.amount)+'</span></div>').join(''):'<div class="empty">Wala pang expense records.</div>';
+}
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function hydrate(snap){
+ const main={},parts={};snap.forEach(d=>{const id=d.id,i=id.indexOf('~p');if(i<0)main[id]=d.data();else(parts[id.slice(0,i)]??={})[Number(id.slice(i+2))]=d.data().s});
+ const next={};for(const [id,d] of Object.entries(main)){let v=d.parts>0?Array.from({length:d.parts},(_,i)=>parts[id]?.[i]).join(''):d.v;if(typeof v==='string')next[id]=v}
+ records=next;render();setText('syncText','Live • Updated '+new Date().toLocaleTimeString());$('dot').className='dot';
+}
+async function verifyOwner(u){
+ const ref=await getDoc(doc(db,'roles',u.uid));if(!ref.exists())throw new Error('Walang Owner role ang account na ito.');
+ const data=ref.data();if(data.role!=='owner')throw new Error('Owner account lang ang puwedeng magbukas ng monitoring dashboard.');
+ if(String(data.email||'').toLowerCase()!==String(u.email||'').toLowerCase())throw new Error('Hindi tugma ang email sa Owner role record. Ipa-verify ito sa administrator.');
+ return data;
+}
+function startWatch(){if(unsubscribe)unsubscribe();unsubscribe=onSnapshot(collection(db,'data'),hydrate,err=>{setText('syncText','Sync error: '+(err.code||err.message));$('dot').className='dot off'})}
+function showApp(name){$('login').hidden=true;$('app').hidden=false;$('logout').hidden=false;$('refresh').hidden=false;setText('ownerName',name||'Owner');}
+function showLogin(msg=''){$('login').hidden=false;$('app').hidden=true;$('logout').hidden=true;$('refresh').hidden=true;setText('loginError',msg)}
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('signIn').disabled=true;setText('loginError','Signing in…');try{const c=await signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value);const role=await verifyOwner(c.user);userRole=role;showApp(role.name||'Sheena Marie Cuizon');startWatch()}catch(err){await signOut(auth).catch(()=>{});showLogin(err.message||'Hindi makapag-login.')}finally{$('signIn').disabled=false;$('password').value=''}});
+$('logout').onclick=async()=>{if(unsubscribe)unsubscribe();unsubscribe=null;await signOut(auth);showLogin()};
+$('refresh').onclick=()=>{setText('syncText','Refreshing…');$('dot').className='dot off';startWatch();};
+if(!cfg.apiKey||!cfg.projectId){showLogin('Hindi pa naka-configure ang Firebase.');}else{app=initializeApp(cfg);auth=getAuth(app);db=getFirestore(app);onAuthStateChanged(auth,async u=>{if(!u)return;try{const role=await verifyOwner(u);userRole=role;showApp(role.name||'Owner');startWatch()}catch(e){await signOut(auth);showLogin(e.message)}})}
+</script>
+</body></html>
