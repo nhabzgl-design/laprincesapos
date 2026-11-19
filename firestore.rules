@@ -88,34 +88,7 @@ service cloud.firestore {
               && !(request.resource.data.keys().hasAny(['v'])
                 && request.resource.data.v == '[]'))))
         || (isOwner()
-          && documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)
-
-      // Root markers remain durable. Only Owner may remove obsolete chunks.
-      allow delete: if (hasValidRole() && !isClearableOperationalDoc(documentId))
-        || (isOwner()
-          && documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)~p[0-9]+$'));
-    }
-
-    match /meta/{documentId} {
-      allow get: if documentId == 'clear_generation' && hasValidRole();
-      allow list: if false;
-      allow create: if documentId == 'clear_generation'
-        && isOwner()
-        && isValidClearGenerationDoc()
-        && request.resource.data.generation == 1;
-      allow update: if documentId == 'clear_generation'
-        && isOwner()
-        && isValidClearGenerationDoc()
-        && request.resource.data.generation == resource.data.generation + 1;
-      allow delete: if false;
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}
-)
+          && documentId.matches('^laPrincesa_(orders_v2|inventory_v2|deleted_orders_v1|activity_log_v1)$')
           && isEmptyClearMarker());
 
       // Root markers remain durable. Only Owner may remove obsolete chunks.
