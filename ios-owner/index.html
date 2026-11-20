@@ -101,7 +101,7 @@ async function startLive(){
  const {onSnapshot,collection,doc,getDocFromServer,getDocsFromServer}=sdk.F;
  const genRef=doc(db,'meta','clear_generation'),dataRef=collection(db,'data');
  try{const [g,d]=await Promise.all([getDocFromServer(genRef),getDocsFromServer(dataRef)]);generation=g.exists()?Number(g.data().generation)||0:0;localStorage.setItem('lpmeta_clear_generation_v1',String(generation));applyCloud(d)}catch(e){throw e}
- stopGeneration=onSnapshot(genRef,s=>{generation=s.exists()?Number(s.data().generation)||0:0;localStorage.setItem('lpmeta_clear_generation_v1',String(generation));if(stopData){stopData();stopData=null}stopData=onSnapshot(dataRef,applyCloud,err=>{live=false;setSync('Sync error',false);$('notice').textContent='Hindi ma-update ang live data: '+(err.message||err.code);show('notice',true)})},err=>{setSync('Generation sync error',false);$('notice').textContent='Hindi mabasa ang clear-generation status. Monitoring paused.';show('notice',true)});
+ stopGeneration=onSnapshot(genRef,s=>{const next=s.exists()?Number(s.data().generation)||0:0;localStorage.setItem('lpmeta_clear_generation_v1',String(next));if(next!==generation){generation=next;getDocsFromServer(dataRef).then(applyCloud).catch(err=>{setSync('Generation refresh failed',false);$('notice').textContent=err.message||err.code;show('notice',true)})}},err=>{setSync('Generation sync error',false);$('notice').textContent='Hindi mabasa ang clear-generation status. Monitoring paused.';show('notice',true)});
  stopData=onSnapshot(dataRef,applyCloud,err=>{live=false;setSync('Sync error',false);$('notice').textContent='Hindi ma-update ang live data: '+(err.message||err.code);show('notice',true)});
 }
 async function initFirebase(){
@@ -111,7 +111,7 @@ async function initFirebase(){
  const app=A.getApps().length?A.getApp():A.initializeApp(CFG);auth=Au.getAuth(app);db=F.getFirestore(app);sdk={A,Au,F};
 }
 async function verifyOwner(user){
- const snap=await sdk.F.getDoc(sdk.F.doc(db,'roles',user.uid));
+ const snap=await sdk.F.getDocFromServer(sdk.F.doc(db,'roles',user.uid));
  if(!snap.exists()||snap.data().role!=='owner')return null;
  return {role:'owner',name:snap.data().username||user.email||'Owner'};
 }
@@ -121,7 +121,7 @@ async function enter(user){
  owner=verified;$('ownerName').textContent=verified.name;show('login',false);show('app',true);
  try{await startLive()}catch(e){setSync('Hindi naka-sync',false);$('notice').textContent='Hindi makuha ang production data mula sa Firestore: '+(e.message||e.code);show('notice',true)}
 }
-$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginError').textContent='';$('loginBtn').disabled=true;$('loginBtn').textContent='Kumokonekta…';try{await initFirebase();await sdk.Au.setPersistence(auth,$('identity').value.includes('@')?sdk.Au.browserLocalPersistence:sdk.Au.browserSessionPersistence);const credential=await sdk.Au.signInWithEmailAndPassword(auth,emailFor($('identity').value),$('password').value);await enter(credential.user)}catch(err){$('loginError').textContent=err.message||'Hindi makapag-login.'}finally{$('loginBtn').disabled=false;$('loginBtn').textContent='Mag-login'}});
+$('loginForm').addEventListener('submit',async e=>{e.preventDefault();$('loginError').textContent='';$('loginBtn').disabled=true;$('loginBtn').textContent='Kumokonekta…';try{await initFirebase();await sdk.Au.setPersistence(auth,sdk.Au.browserLocalPersistence);const credential=await sdk.Au.signInWithEmailAndPassword(auth,emailFor($('identity').value),$('password').value);await enter(credential.user)}catch(err){$('loginError').textContent=err.message||'Hindi makapag-login.'}finally{$('loginBtn').disabled=false;$('loginBtn').textContent='Mag-login'}});
 $('logout').addEventListener('click',async()=>{if(stopData)stopData();if(stopGeneration)stopGeneration();stopData=stopGeneration=null;records={};owner=null;show('app',false);show('login',true);setSync('Naka-logout',false);if(auth)await sdk.Au.signOut(auth)});
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.toggle('active',x===b));['overview','orders','inventory','expenses'].forEach(k=>show(k,k===b.dataset.tab))}));
 function downloadBackup(){const blob=new Blob([JSON.stringify({createdAt:new Date().toISOString(),generation,records},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='la-princesa-owner-safety-backup-'+Date.now()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
