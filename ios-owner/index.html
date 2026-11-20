@@ -60,7 +60,7 @@ let sdk=null,auth=null,db=null,owner=null,stopData=null,stopGeneration=null;
 let records={},generation=0,live=false;
 const money=n=>'₱'+(Number(n)||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
 const arr=x=>{try{const v=JSON.parse(x||'[]');return Array.isArray(v)?v:[]}catch{return[]}};
-const localDate=d=>{const x=new Date(d);return Number.isFinite(x.getTime())?x.toLocaleDateString('en-CA'):'';
+const localDate=d=>{const x=new Date(d);return Number.isFinite(x.getTime())?[x.getFullYear(),String(x.getMonth()+1).padStart(2,'0'),String(x.getDate()).padStart(2,'0')].join('-'):'';
 };
 const today=()=>localDate(new Date());
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -145,6 +145,7 @@ $('clearData').addEventListener('click',async()=>{
 });
 window.addEventListener('online',()=>{if(live)setSync('Live • Naka-sync',true);else setSync('May internet • naghihintay',false)});
 window.addEventListener('offline',()=>setSync('Offline • huling data',false));
+(async()=>{try{await initFirebase();if(auth.authStateReady)await auth.authStateReady();if(auth.currentUser)await enter(auth.currentUser)}catch(e){if(auth&&auth.currentUser)$('loginError').textContent=e.message||'Hindi maibalik ang Owner session.'}})();
 if('serviceWorker'in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 </script>
 </body>
