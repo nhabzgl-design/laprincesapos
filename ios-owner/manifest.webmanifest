@@ -1,0 +1,16 @@
+{
+  "name": "La Princesa Owner Monitoring",
+  "short_name": "LP Owner",
+  "description": "Owner-only, read-only monitoring for the La Princesa Staff POS with scoped Clear Data.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#100d20",
+  "theme_color": "#17132d",
+  "lang": "fil",
+  "icons": [
+    {"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}
+  ]
+}

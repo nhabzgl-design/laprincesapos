@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="fil">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#17132d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LP Owner Monitor">
+<title>La Princesa — Owner Monitoring</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<style>
+:root{color-scheme:dark;--bg:#100d20;--panel:#1b1730;--panel2:#241d3c;--line:#393052;--text:#f7f3ff;--muted:#b8afce;--pink:#ed4ca1;--purple:#8b5cf6;--green:#43d9a2;--amber:#ffc66d;--red:#ff7189}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#32204d 0,transparent 34%),var(--bg);color:var(--text);font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+button,input{font:inherit}button{cursor:pointer}.hidden{display:none!important}
+#gate{min-height:100svh;display:grid;place-items:center;padding:22px}.login{width:min(420px,100%);padding:26px;border:1px solid var(--line);border-radius:24px;background:#1b1730ed;box-shadow:0 24px 80px #0008}.brand{display:flex;align-items:center;gap:12px;margin-bottom:24px}.logo{width:52px;height:52px;border-radius:16px;background:linear-gradient(135deg,var(--purple),var(--pink));display:grid;place-items:center;font-weight:900;font-size:20px}.brand h1{font-size:17px;margin:0}.brand p{margin:4px 0 0;color:var(--muted);font-size:11px;letter-spacing:.12em}.login h2{font-size:22px;margin:0 0 8px}.hint{color:var(--muted);line-height:1.5;margin:0 0 20px}.field{display:block;width:100%;padding:14px 13px;margin:10px 0;border:1px solid var(--line);border-radius:12px;background:#100d20;color:var(--text);outline:none}.primary{width:100%;padding:14px;border:0;border-radius:12px;background:linear-gradient(100deg,var(--purple),var(--pink));color:white;font-weight:800;margin-top:8px}.error{color:#ff9bac;min-height:20px;margin-top:12px;font-size:12px}
+#app{max-width:1180px;margin:auto;padding:18px 16px 40px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}.top h1{font-size:22px;margin:0}.top p{margin:5px 0 0;color:var(--muted);font-size:12px}.actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.status{padding:7px 10px;border:1px solid var(--line);border-radius:999px;color:var(--green);font-size:11px;font-weight:700}.status.off{color:var(--amber)}.secondary,.danger{border:1px solid var(--line);border-radius:10px;padding:9px 12px;background:var(--panel2);color:var(--text);font-weight:700;font-size:12px}.danger{background:#4a1d35;border-color:#79314f;color:#ffd9e3}
+.banner{padding:12px 14px;border:1px solid #3d315a;background:#241d3c;border-radius:14px;color:#dcd2f2;font-size:12px;line-height:1.5;margin-bottom:16px}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.metric{background:linear-gradient(145deg,var(--panel),#211a38);border:1px solid var(--line);border-radius:16px;padding:15px;min-width:0}.metric .label{font-size:10px;letter-spacing:.08em;color:var(--muted);font-weight:800;text-transform:uppercase}.metric .value{font-size:clamp(17px,3vw,25px);font-weight:900;margin-top:9px;overflow-wrap:anywhere}.metric .sub{font-size:10px;color:var(--muted);margin-top:5px}
+.grid{display:grid;grid-template-columns:1.25fr .75fr;gap:12px;margin-top:12px}.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:15px;min-width:0}.panel h2{font-size:14px;margin:0 0 12px}.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.muted{color:var(--muted);font-size:11px}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:480px}th,td{text-align:left;padding:10px 8px;border-bottom:1px solid #342c49;font-size:11px;vertical-align:top}th{color:var(--muted);font-size:9px;letter-spacing:.08em;text-transform:uppercase}td.num,th.num{text-align:right}.pill{display:inline-block;padding:4px 7px;border-radius:99px;background:#32284a;color:#e8dcff;font-size:9px;font-weight:800}.pill.paid{background:#143d35;color:#a6f3d8}.pill.partial{background:#49371c;color:#ffe0a4}.pill.unpaid{background:#482333;color:#ffc0d0}.empty{padding:22px 8px;text-align:center;color:var(--muted);font-size:12px}.lower{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.footer{color:#817897;text-align:center;font-size:10px;padding:22px 0 4px}
+@media(max-width:760px){.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.grid,.lower{grid-template-columns:1fr}.top h1{font-size:19px}}
+</style>
+</head>
+<body>
+<div id="gate">
+ <form class="login" id="login-form">
+  <div class="brand"><div class="logo">LP</div><div><h1>La Princesa Aquaspin</h1><p>OWNER MONITORING</p></div></div>
+  <h2>Owner Login</h2>
+  <p class="hint">Monitoring-only access. Makikita rito ang data mula sa Staff POS. Walang order, checkout o product editing.</p>
+  <input class="field" id="email" type="email" autocomplete="username" placeholder="Owner email" required>
+  <input class="field" id="password" type="password" autocomplete="current-password" placeholder="Password" required>
+  <button class="primary" id="login-button" type="submit">Mag-login</button>
+  <div class="error" id="login-error" role="alert"></div>
+ </form>
+</div>
+<main id="app" class="hidden">
+ <header class="top">
+  <div><h1>La Princesa — Owner Monitoring</h1><p id="owner-label">Owner view • Read-only monitoring</p></div>
+  <div class="actions"><span id="connection" class="status off">Kumokonekta…</span><button class="secondary" id="refresh">I-refresh</button><button class="danger" id="clear-data">Clear Operational Data</button><button class="secondary" id="logout">Logout</button></div>
+ </header>
+ <div class="banner"><strong>Monitoring-only app.</strong> Walang pagtanggap o paglikha ng order dito. Ang Clear Operational Data ay para lamang sa Owner at maglilinis ng Sales/Orders, Deleted Records, Inventory at Activity Log. Hindi gagalawin ang Customers, Expenses, Services, Machines, accounts, printer settings o ibang settings.</div>
+ <section class="metrics" id="metrics">
+  <div class="metric"><div class="label">Gross Sales Today</div><div class="value">₱0.00</div><div class="sub">Batay sa active orders</div></div>
+  <div class="metric"><div class="label">Net Sales Today</div><div class="value">₱0.00</div><div class="sub">Gross less discounts/refunds</div></div>
+  <div class="metric"><div class="label">Collections Today</div><div class="value">₱0.00</div><div class="sub">Ayon sa payment timestamps</div></div>
+  <div class="metric"><div class="label">Orders Today</div><div class="value">0</div><div class="sub">Active orders only</div></div>
+  <div class="metric"><div class="label">Outstanding</div><div class="value">₱0.00</div><div class="sub">All active orders</div></div>
+  <div class="metric"><div class="label">Expenses Today</div><div class="value">₱0.00</div><div class="sub">Recorded expenses</div></div>
+  <div class="metric"><div class="label">Inventory Items</div><div class="value">0</div><div class="sub">Read-only stock list</div></div>
+  <div class="metric"><div class="label">Customers</div><div class="value">0</div><div class="sub">Preserved customer records</div></div>
+ </section>
+ <section class="grid">
+  <div class="panel"><div class="panel-head"><h2>Latest Staff Orders</h2><span class="muted" id="orders-count">0 records</span></div><div class="table-wrap" id="orders-table"><div class="empty">Wala pang order data.</div></div></div>
+  <div class="panel"><h2>Inventory Snapshot</h2><div class="table-wrap" id="inventory-table"><div class="empty">Wala pang inventory data.</div></div></div>
+ </section>
+ <section class="lower">
+  <div class="panel"><h2>Recent Activity</h2><div id="activity-list" class="empty">Wala pang activity.</div></div>
+  <div class="panel"><h2>Recent Expenses</h2><div class="table-wrap" id="expenses-table"><div class="empty">Wala pang expense data.</div></div></div>
+ </section>
+ <div class="footer">La Princesa Owner Monitoring • Live Firestore view • Read-only except Owner Clear Data</div>
+</main>
+<script src="./firebase-config.js"></script>
+<script type="module">
+const cfg=window.LP_OWNER_FIREBASE_CONFIG||{};
+const FIREBASE_BASE='https://www.gstatic.com/firebasejs/10.14.1/';
+const CLEAR_KEYS=['laPrincesa_orders_v2','laPrincesa_deleted_orders_v1','laPrincesa_inventory_v2','laPrincesa_activity_log_v1'];
+const PRESERVED_KEYS=['laPrincesa_customers_v2','laPrincesa_expenses_v2','laPrincesa_services_v2','laPrincesa_machines'];
+const $=id=>document.getElementById(id);
+let auth=null,db=null,api=null,currentUser=null,ownerName='',ownerVerified=false,currentData={},generation=0,stopData=null,stopGeneration=null,stopAuth=null,clearBusy=false;
+const money=n=>'₱'+(Math.round((Number(n)||0)*100)/100).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+function safeArray(v){if(Array.isArray(v))return v;if(typeof v==='string'){try{const x=JSON.parse(v);return Array.isArray(x)?x:[]}catch(e){}}return[]}
+function isOperational(k){return CLEAR_KEYS.includes(k)}
+function isToday(value){if(!value)return false;const d=new Date(value);if(!Number.isFinite(d.getTime()))return false;return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).format(d)===new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date())}
+function lpFin(o){const total=Number(o.total)||0;let collected=o.collected!=null?Number(o.collected):Math.min(Number(o.paid)||0,total);collected=Math.min(Math.max(0,collected),total);const balance=Math.round((total-collected)*100)/100;return{total,collected,balance,status:total<=0||balance<=.004?'Paid':collected<=0?'Unpaid':'Partial',refunded:Number(o.refunded)||0}}
+function ownerMetrics(data,todayFn){
+ const orders=safeArray(data.laPrincesa_orders_v2),deleted=safeArray(data.laPrincesa_deleted_orders_v1),expenses=safeArray(data.laPrincesa_expenses_v2),inventory=safeArray(data.laPrincesa_inventory_v2),customers=safeArray(data.laPrincesa_customers_v2);
+ const deletedIds=new Set(deleted.filter(x=>x&&x.id!=null).map(x=>String(x.id)));
+ const active=orders.filter(x=>x&&!x.deletedAt&&!deletedIds.has(String(x.id)));
+ const todayOrders=active.filter(x=>todayFn(x.date));
+ let gross=0,discounts=0,refunds=0,collections=0,balance=0,expensesToday=0;
+ todayOrders.forEach(x=>{const f=lpFin(x);const d=Number(x.discount)||0;gross+=f.total+d;discounts+=d;refunds+=f.refunded});
+ active.forEach(x=>{const f=lpFin(x);balance+=f.balance;const payments=Array.isArray(x.payments)&&x.payments.length?x.payments:(f.collected>0?[{amount:f.collected,at:x.date}]:[]);payments.forEach(p=>{if(todayFn(p.at||x.date))collections+=Number(p.amount)||0})});
+ expenses.filter(x=>todayFn(x.date)).forEach(x=>{expensesToday+=Number(x.amount)||0});
+ return{gross:gross,net:gross-discounts-refunds,collections:collections,orders:todayOrders.length,balance:balance,expenses:expensesToday,inventory:inventory.length,customers:customers.length,activeOrders:active};
+}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function parseSnapshot(snap){
+ const roots={},parts={},out={};
+ snap.forEach(doc=>{const id=doc.id,at=id.indexOf('~p');if(at<0)roots[id]=doc.data();else{const base=id.slice(0,at);if(!parts[base])parts[base]={};parts[base][Number(id.slice(at+2))]=doc.data().s}});
+ Object.keys(roots).forEach(key=>{
+  const d=roots[key]||{};
+  if(isOperational(key)&&generation>0&&Number(d.g)!==generation)return;
+  let raw=d.v;
+  if(Number(d.parts)>0){raw='';for(let i=0;i<Number(d.parts);i++){const part=parts[key]&&parts[key][i];if(typeof part!=='string'){raw=null;break}raw+=part}}
+  if(typeof raw==='string'){try{out[key]=JSON.parse(raw)}catch(e){out[key]=[]}}
+ });
+ return out;
+}
+function setConnection(text,offline){$('connection').textContent=text;$('connection').classList.toggle('off',!!offline)}
+function render(data){
+ currentData=data||{};
+ const m=ownerMetrics(currentData,isToday);
+ const vals=[money(m.gross),money(m.net),money(m.collections),String(m.orders),money(m.balance),money(m.expenses),String(m.inventory),String(m.customers)];
+ const labels=['Gross Sales Today','Net Sales Today','Collections Today','Orders Today','Outstanding','Expenses Today','Inventory Items','Customers'];
+ $('metrics').innerHTML=vals.map((v,i)=>'<div class="metric"><div class="label">'+labels[i]+'</div><div class="value">'+v+'</div><div class="sub">'+(i===0?'Active orders, before discounts':i===1?'Gross less discounts/refunds':i===2?'Payment dates today':i===3?'Active orders only':i===4?'All active orders':i===5?'Recorded expenses today':i===6?'Read-only stock records':'Preserved customer records')+'</div></div>').join('');
+ const orders=m.activeOrders.slice().sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)).slice(0,20);
+ $('orders-count').textContent=m.activeOrders.length+' active records';
+ $('orders-table').innerHTML=orders.length?'<table><thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Status</th><th class="num">Total</th></tr></thead><tbody>'+orders.map(o=>{const f=lpFin(o);return'<tr><td>'+esc(o.orderNo||o.id||'—')+'</td><td>'+esc(o.customer&&o.customer.name||o.customerName||'—')+'</td><td>'+esc(o.date?new Date(o.date).toLocaleString('en-PH'):'—')+'</td><td><span class="pill '+f.status.toLowerCase()+'">'+f.status+'</span></td><td class="num">'+money(f.total)+'</td></tr>'}).join('')+'</tbody></table>':'<div class="empty">Wala pang active order records.</div>';
+ const inv=safeArray(currentData.laPrincesa_inventory_v2).slice(0,30);
+ $('inventory-table').innerHTML=inv.length?'<table><thead><tr><th>Item</th><th class="num">Stock</th><th class="num">Price</th></tr></thead><tbody>'+inv.map(x=>'<tr><td>'+esc(x.name||x.item||'Unnamed item')+'</td><td class="num">'+esc(x.stock??x.quantity??'—')+'</td><td class="num">'+money(x.sellingPrice??x.price??0)+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Wala pang inventory records.</div>';
+ const activity=safeArray(currentData.laPrincesa_activity_log_v1).slice().sort((a,b)=>new Date(b.at||b.date||0)-new Date(a.at||a.date||0)).slice(0,12);
+ $('activity-list').innerHTML=activity.length?activity.map(x=>'<div style="padding:9px 0;border-bottom:1px solid #342c49"><strong>'+esc(x.action||x.type||'Activity')+'</strong><div class="muted">'+esc(x.username||x.u||x.staff||'Staff')+' • '+esc((x.at||x.date)?new Date(x.at||x.date).toLocaleString('en-PH'):'—')+'</div><div class="muted">'+esc(x.reason||x.note||'')+'</div></div>').join(''):'<div class="empty">Wala pang activity log.</div>';
+ const exp=safeArray(currentData.laPrincesa_expenses_v2).slice().sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)).slice(0,12);
+ $('expenses-table').innerHTML=exp.length?'<table><thead><tr><th>Category</th><th>Date</th><th class="num">Amount</th></tr></thead><tbody>'+exp.map(x=>'<tr><td>'+esc(x.category||x.name||'Expense')+'</td><td>'+esc(x.date?new Date(x.date).toLocaleDateString('en-PH'):'—')+'</td><td class="num">'+money(x.amount)+'</td></tr>').join('')+'</tbody></table>':'<div class="empty">Wala pang expense records.</div>';
+}
+function stopWatchers(){if(stopData){stopData();stopData=null}if(stopGeneration){stopGeneration();stopGeneration=null}}
+async function verifyOwner(user){
+ stopWatchers();ownerVerified=false;currentUser=null;ownerName='';$('app').classList.add('hidden');$('gate').classList.remove('hidden');setConnection('Sinusuri ang Owner account…',true);
+ try{
+  const roleSnap=await api.getDocFromServer(api.doc(db,'roles',user.uid));
+  if(!auth.currentUser||auth.currentUser.uid!==user.uid)return;
+  if(!roleSnap.exists()||roleSnap.data().role!=='owner'){await api.signOut(auth);throw new Error('Owner account lang ang pinapayagang magbukas ng app na ito.')}
+  const metaRef=api.doc(db,'meta','clear_generation');
+  const gen=await api.getDocFromServer(metaRef);
+  if(!auth.currentUser||auth.currentUser.uid!==user.uid)return;
+  generation=gen.exists()?Number(gen.data().generation)||0:0;
+  currentUser=user;ownerName=roleSnap.data().username||user.email||'Owner';ownerVerified=true;
+  $('owner-label').textContent='Owner: '+ownerName+' • Monitoring-only • Read-only';
+  $('gate').classList.add('hidden');$('app').classList.remove('hidden');
+  stopGeneration=api.onSnapshot(metaRef,s=>{const next=s.exists()?Number(s.data().generation)||0:0;if(next>generation){generation=next;setConnection('May bagong Clear Data update',false)}},e=>setConnection('Hindi mabasa ang sync status',true));
+  stopData=api.onSnapshot(api.collection(db,'data'),snap=>{currentData=parseSnapshot(snap);render(currentData);setConnection(snap.metadata&&snap.metadata.fromCache?'Cached data • naghihintay ng live sync':'LIVE • Updated '+new Date().toLocaleTimeString('en-PH'),!!(snap.metadata&&snap.metadata.fromCache))},e=>setConnection('Sync error: '+(e.code||'connection'),true));
+ }catch(e){ownerVerified=false;currentUser=null;ownerName='';$('gate').classList.remove('hidden');$('app').classList.add('hidden');$('login-error').textContent=e.message||'Hindi ma-verify ang Owner account.'}
+}
+async function initFirebase(){
+ $('login-button').disabled=true;
+ if(!cfg.apiKey||!cfg.projectId){$('login-button').disabled=true;$('login-error').textContent='Hindi naka-configure ang verified Firebase project.';return}
+ const [appMod,authMod,fireMod]=await Promise.all([import(FIREBASE_BASE+'firebase-app.js'),import(FIREBASE_BASE+'firebase-auth.js'),import(FIREBASE_BASE+'firebase-firestore.js')]);
+ const app=appMod.initializeApp(cfg);auth=authMod.getAuth(app);db=fireMod.getFirestore(app);api={...authMod,...fireMod};
+ await authMod.setPersistence(auth,authMod.browserLocalPersistence);
+ $('login-button').disabled=false;
+ stopAuth=authMod.onAuthStateChanged(auth,user=>{if(user)verifyOwner(user);else{stopWatchers();ownerVerified=false;currentUser=null;ownerName='';currentData={};$('gate').classList.remove('hidden');$('app').classList.add('hidden')}});
+}
+$('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-button').disabled=true;$('login-error').textContent='Sinusuri ang login…';try{await api.signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(err){$('login-error').textContent='Hindi makapag-login: '+(err.code||'network error')}finally{$('login-button').disabled=false}});
+$('logout').addEventListener('click',()=>api.signOut(auth));
+$('refresh').addEventListener('click',()=>{setConnection('Ina-update ang live view…',true);if(stopData){stopData();stopData=null}stopData=api.onSnapshot(api.collection(db,'data'),snap=>{currentData=parseSnapshot(snap);render(currentData);setConnection('LIVE • Updated '+new Date().toLocaleTimeString('en-PH'),false)},e=>setConnection('Sync error: '+(e.code||'connection'),true))});
+function downloadBackup(data){
+ const backup={app:'La Princesa Owner Monitoring',type:'pre-clear-operational-backup',createdAt:new Date().toISOString(),projectId:cfg.projectId,keys:{}};
+ CLEAR_KEYS.forEach(k=>backup.keys[k]=safeArray(data[k]));
+ const blob=new Blob([JSON.stringify(backup,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+ a.href=url;a.download='LaPrincesa_PreClear_'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+async function clearOperationalData(){
+ let committedGeneration=null;
+ if(!ownerVerified||!currentUser||!ownerName||clearBusy)return;
+ if(!navigator.onLine){alert('Kailangan ng internet para ligtas na maitala ang Clear Data. Walang binago.');return}
+ if(!confirm('OWNER CLEAR DATA\\n\\nBuburahin lamang ang Sales/Orders, Deleted Records, Inventory at Activity Log sa shared Staff POS database.\\n\\nPananatilihin ang Customers, Expenses, Services, Machines, accounts, printer settings at ibang settings. Magda-download muna ng safety backup.'))return;
+ clearBusy=true;$('clear-data').disabled=true;
+ try{
+  const fresh=await api.getDocsFromServer(api.collection(db,'data'));
+  const freshData=parseSnapshot(fresh);
+  downloadBackup(freshData);
+  if(!confirm('Na-trigger ang pag-download ng safety backup. Itutuloy ang pag-clear ng apat na operational data lamang?'))return;
+  const metaRef=api.doc(db,'meta','clear_generation');
+  const next=await api.runTransaction(db,async tx=>{
+   const meta=await tx.get(metaRef),old=meta.exists()?Number(meta.data().generation)||0:0,newGeneration=old+1,now=Date.now();
+   tx.set(metaRef,{generation:newGeneration,t:now,by:String(currentUser.uid)});
+   CLEAR_KEYS.forEach(k=>tx.set(api.doc(db,'data',k),{v:'[]',parts:0,t:now,by:String(currentUser.uid),g:newGeneration}));
+   return newGeneration;
+  });
+  committedGeneration=next;generation=next;
+  const after=await api.getDocsFromServer(api.collection(db,'data'));
+  const chunks=[];
+  after.forEach(d=>{if(/^laPrincesa_(orders_v2|deleted_orders_v1|inventory_v2|activity_log_v1)~p[0-9]+$/.test(d.id)&&Number(d.data().g)!==next)chunks.push(d.ref)});
+  for(let i=0;i<chunks.length;i+=450){const batch=api.writeBatch(db);chunks.slice(i,i+450).forEach(ref=>batch.delete(ref));await batch.commit()}
+  alert('Matagumpay ang Owner Clear Data. Nabura ang Sales/Orders, Deleted Records, Inventory at Activity Log. Napanatili ang Customers, Expenses, Services, Machines, accounts at printer settings.');
+ }catch(e){if(committedGeneration!==null){alert('Naitala na ang Clear Data generation '+committedGeneration+'. May problema lamang sa paglilinis ng lumang chunk files; hindi na dapat lumabas ang lumang records. Error: '+(e.code||e.message||'unknown'))}else{alert('Hindi natuloy ang Clear Data. Walang operational data na binago. Error: '+(e.code||e.message||'unknown'))}}
+ finally{clearBusy=false;$('clear-data').disabled=false}
+}
+$('clear-data').addEventListener('click',clearOperationalData);
+window.addEventListener('online',()=>setConnection('Internet restored • naghihintay ng live update',false));
+window.addEventListener('offline',()=>setConnection('Offline • hindi live ang data',true));
+try{await initFirebase()}catch(e){$('login-button').disabled=true;$('login-error').textContent='Hindi ma-load ang Firebase: '+(e.message||'network error')}
+</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){})})}</script>
+</body>
+</html>

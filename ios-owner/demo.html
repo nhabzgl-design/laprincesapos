@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="fil">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="La Princesa Owner">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<title>La Princesa — Owner POS Demo Preview</title>
+<style>
+:root{color-scheme:dark;--bg:#090f1d;--panel:#121c2e;--panel2:#18243a;--line:#27364f;--muted:#9aabc4;--text:#f4f7fc;--accent:#72e0c1;--warn:#f6c66d}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 80% -10%,#1b3850 0,transparent 42%),var(--bg);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh}
+.shell{max-width:1080px;margin:auto;padding:env(safe-area-inset-top) 16px calc(88px + env(safe-area-inset-bottom))}
+header{padding:24px 4px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{display:flex;align-items:center;gap:12px}.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#7be4c3,#3988a5);display:grid;place-items:center;color:#08202a;font-weight:900;font-size:20px}.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}h1{font-size:19px;margin:3px 0 0}.mode{font-size:11px;border:1px solid #286b61;color:#9ef0d8;background:#10342f;padding:7px 10px;border-radius:99px;white-space:nowrap}
+.notice{border:1px solid #6b542b;background:#2b2417;color:#f4d89d;padding:13px 14px;border-radius:14px;line-height:1.45;margin:4px 0 18px}.notice strong{display:block;margin-bottom:3px;color:#ffe6b4}
+h2{font-size:17px;margin:22px 2px 12px}.sub{color:var(--muted);font-size:13px;margin:-5px 2px 14px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.metric,.section-card{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:17px;padding:16px;min-width:0}.metric .label{color:var(--muted);font-size:12px}.metric .value{font-size:22px;font-weight:750;margin-top:9px}.metric .foot{font-size:11px;color:var(--muted);margin-top:5px}
+.nav{position:fixed;bottom:0;left:0;right:0;padding:9px 8px calc(9px + env(safe-area-inset-bottom));background:#0b1322ed;backdrop-filter:blur(16px);border-top:1px solid var(--line);display:flex;justify-content:center;z-index:4}.navinner{width:min(100%,1080px);display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}.navinner::-webkit-scrollbar{display:none}.nav button{flex:1 0 68px;min-width:68px;background:none;border:0;color:var(--muted);padding:8px 3px;border-radius:12px;font:inherit;font-size:10px;display:grid;gap:4px;justify-items:center}.nav button.active{background:#1b3540;color:var(--accent)}.nav .ico{font-size:18px}
+.view{display:none}.view.active{display:block}.section-card{margin-bottom:10px}.section-head{display:flex;justify-content:space-between;gap:8px;align-items:center;font-weight:650}.pill{font-size:10px;color:#c3d2e7;background:#24334a;border-radius:99px;padding:5px 8px}.empty{padding:24px 12px;text-align:center;color:var(--muted);font-size:13px;line-height:1.55}.empty b{display:block;color:#dce7f7;font-size:14px;margin-bottom:5px}.list{display:grid;gap:10px}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+footer{text-align:center;color:#71839e;font-size:11px;padding:25px 0 8px}
+@media(min-width:700px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}.two{grid-template-columns:repeat(2,minmax(0,1fr))}.shell{padding-left:24px;padding-right:24px}}
+
+/* Secure sign-in gate: dashboard remains hidden until server-verified Owner role. */
+body:not(.owner-authenticated) .shell,body:not(.owner-authenticated) .nav{display:none!important}
+.auth-gate{min-height:100svh;display:grid;place-items:center;padding:24px 16px;background:radial-gradient(ellipse at 80% -10%,#1b3850 0,transparent 42%),var(--bg)}
+.auth-card{width:min(100%,430px);background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:22px;padding:24px;box-shadow:0 18px 60px #0005}
+.auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}.auth-logo{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#7be4c3,#3988a5);display:grid;place-items:center;color:#08202a;font-weight:900;font-size:20px}
+.auth-card h1{font-size:21px;margin:0 0 5px}.auth-card p{color:var(--muted);font-size:13px;line-height:1.5}.auth-card label{display:block;font-size:12px;color:#cbd7e8;margin:14px 0 6px}.auth-card input{width:100%;padding:13px;border:1px solid var(--line);border-radius:11px;background:#0b1424;color:var(--text);font:inherit}.auth-card button{width:100%;padding:13px;border:0;border-radius:11px;background:var(--accent);color:#08231e;font-weight:750;font:inherit;margin-top:16px}.auth-card button:disabled{opacity:.45}.auth-status{margin-top:13px;padding:11px;border-radius:10px;background:#0b1424;color:#d7e3f4;font-size:12px;line-height:1.5}.auth-status.error{color:#ffd1c9;border:1px solid #71443f}.auth-foot{font-size:11px!important;margin-top:18px}
+
+/* La Princesa Staff POS visual system — Owner read-only adaptation */
+@import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+:root{color-scheme:dark;--bg:#0F0F1E;--panel:#1E1E3A;--panel2:#252542;--line:#2D2D4D;--muted:#9CA3AF;--text:#FFFFFF;--accent:#E91E8C;--warn:#f6c66d;--purple:#7B2FFF;--navy:#1A1A4E}
+*{box-sizing:border-box;font-family:"Plus Jakarta Sans",system-ui,sans-serif}
+body{background:var(--bg);color:var(--text);font:14px "Plus Jakarta Sans",system-ui,sans-serif;min-height:100vh}
+h1,h2,.eyebrow,.metric .value{font-family:"Baloo 2",cursive}
+.shell{max-width:none;margin:0;padding:0 24px 110px 294px}
+header{position:sticky;top:0;z-index:5;margin:0 -24px 22px;padding:14px 24px;background:#0F0F1Eeb;border-bottom:1px solid #1E1E3A;backdrop-filter:blur(18px)}
+.brand{gap:12px}.logo,.auth-logo{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#7B2FFF,#E91E8C);color:white;box-shadow:0 0 0 3px #E91E8C;font-family:"Baloo 2",cursive}
+.eyebrow{font-family:"Plus Jakarta Sans",sans-serif;color:#E91E8C;font-weight:800;letter-spacing:.12em;font-size:10px}
+h1{font-size:22px;margin:0;color:#fff}
+.mode{border:1px solid #E91E8C;color:#ff8bc5;background:#32132d;font-weight:800;letter-spacing:.06em}
+.notice{border:1px solid #7B2FFF;background:#21183a;color:#eadfff;border-radius:16px}
+.notice strong{color:#ff8bc5}
+h2{font-size:24px;color:#fff;margin:26px 2px 5px}
+.sub{color:#9CA3AF}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.metric,.section-card{background:linear-gradient(145deg,#252542,#1E1E3A);border:1px solid #2D2D4D;border-radius:18px;box-shadow:0 8px 24px #0003}
+.metric .label{color:#9CA3AF;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:10px}
+.metric .value{font-size:27px;color:#ff8bc5}.metric .foot{color:#9CA3AF}
+.section-head{color:#fff}.pill{color:#ffb4d9;background:#3a1b3a;border:1px solid #71305c}
+.empty{color:#9CA3AF}.empty b{color:#fff}
+.nav{position:fixed;inset:0 auto 0 0;width:270px;padding:18px 12px;background:#0F0F1E;border-right:1px solid #1E1E3A;border-top:0;display:flex;align-items:stretch;justify-content:flex-start;z-index:20}
+.navinner{width:100%;display:flex;flex-direction:column;gap:5px;overflow-y:auto;overflow-x:hidden}
+.nav button{flex:0 0 auto;width:100%;min-width:0;display:flex;align-items:center;justify-content:flex-start;gap:13px;text-align:left;padding:12px 14px;border-radius:12px;color:#9CA3AF;font-size:12px;font-weight:700}
+.nav button.active{background:linear-gradient(90deg,#38205f,#3a1838);color:#ff8bc5;box-shadow:inset 3px 0 #E91E8C}
+.nav .ico{font-size:18px;width:22px;text-align:center}
+footer{color:#73738e}
+.auth-gate{background:radial-gradient(ellipse at 80% -10%,#33205c 0,transparent 42%),#0F0F1E}
+.auth-card{background:linear-gradient(145deg,#252542,#1E1E3A);border:1px solid #2D2D4D;border-radius:24px;box-shadow:0 18px 60px #0008}
+.auth-logo{display:grid;place-items:center}.auth-card h1{font-size:26px}
+.auth-card p,.auth-card label{color:#b5b5ca}.auth-card input{background:#111126;border:1px solid #39395c;border-radius:12px}
+.auth-card button{background:linear-gradient(90deg,#7B2FFF,#E91E8C);color:#fff;font-weight:800;border-radius:12px}
+.auth-status{background:#111126;border:1px solid #39395c;color:#d9d9e8}
+@media(min-width:900px){.grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:760px){
+.shell{padding:0 14px calc(100px + env(safe-area-inset-bottom))}
+header{margin:0 -14px 16px;padding:12px 14px}
+.nav{inset:auto 0 0;width:100%;height:auto;padding:8px 7px calc(8px + env(safe-area-inset-bottom));background:#0F0F1Eed;border-right:0;border-top:1px solid #2D2D4D}
+.navinner{width:100%;flex-direction:row;gap:3px;overflow-x:auto}
+.nav button{flex:1 0 66px;width:auto;min-width:66px;display:grid;justify-content:center;justify-items:center;text-align:center;gap:4px;padding:8px 3px;font-size:10px}
+.nav button.active{box-shadow:inset 0 3px #E91E8C}.nav .ico{width:auto;font-size:17px}
+.grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+</style>
+</head>
+<body><section class="auth-gate" id="owner-auth-gate" aria-labelledby="owner-auth-title"><div class="auth-card"><div class="auth-brand"><div class="auth-logo">LP</div><div><div class="eyebrow">La Princesa Aquaspin</div><div class="eyebrow">Secure Owner Access</div></div></div><h1 id="owner-auth-title">Owner POS Login</h1><p>Para lamang sa Owner account. Kailangang ma-verify sa server ang Owner role bago buksan ang monitoring dashboard.</p><form id="owner-login-form"><label for="owner-identity">Owner username o email</label><input id="owner-identity" name="identity" autocomplete="username" required><label for="owner-password">Password</label><input id="owner-password" name="password" type="password" autocomplete="current-password" required><button id="owner-login-button" type="submit" disabled>Login unavailable — setup needed</button></form><div class="auth-status" id="owner-auth-status" role="status" aria-live="polite">Hindi pa naka-configure ang verified Firebase project. Hindi muna papayagan ang login hangga't hindi ito naitatakda.</div><p class="auth-foot">Read-only Owner access · Walang Staff POS write controls · Walang demo account</p></div></section>
+
+<div class="shell">
+<header><div class="brand"><div class="logo">LP</div><div><div class="eyebrow">La Princesa Aquaspin</div><h1>Owner POS</h1></div></div><div style="display:flex;align-items:center;gap:8px"><span class="mode">READ ONLY</span><button id="owner-logout" type="button" style="display:none;border:1px solid var(--line);background:#18243a;color:var(--text);padding:8px 10px;border-radius:10px;font:inherit;font-size:12px">Logout</button></div></header>
+<div class="notice" role="status"><strong>Hindi pa konektado sa live POS data</strong>Preview ng Owner App ito. Hindi pa naka-configure at nabe-verify ang cloud database at owner login. Walang totoong sales o customer records na ipinapakita rito.</div>
+<main>
+<section class="view active" id="overview">
+<h2>Overview</h2><p class="sub">Buod ng operasyon ng shop</p>
+<div class="grid">
+<div class="metric"><div class="label">Orders Today</div><div class="value" id="owner-metric-orders">—</div><div class="foot">Ngayong araw</div></div>
+<div class="metric"><div class="label">Gross Sales</div><div class="value" id="owner-metric-gross">₱ —</div><div class="foot">Batay sa aktibong orders</div></div>
+<div class="metric"><div class="label">Collections</div><div class="value" id="owner-metric-collected">₱ —</div><div class="foot">Na-record na collections</div></div>
+<div class="metric"><div class="label">Unpaid Balance</div><div class="value" id="owner-metric-unpaid">₱ —</div><div class="foot">Natitirang balance</div></div>
+</div>
+<h2>Shop status</h2><div class="section-card"><div class="section-head">Cloud connection <span class="pill">NOT CONNECTED</span></div><div class="empty"><b>Hinihintay ang verified database setup</b>Hindi muna magpapakita ng pekeng impormasyon o magpapahintulot ng anumang pagbabago sa POS.</div></div>
+</section>
+<section class="view" id="orders"><h2>Orders</h2><p class="sub">Order list at status — view only</p><div class="section-card" id="owner-orders-live"><div class="empty"><b>Wala pang live order feed</b>Ikokonekta pagkatapos ma-verify ang database at access rules.</div></div></section>
+<section class="view" id="customers"><h2>Customers</h2><p class="sub">Customer directory at order history</p><div class="section-card" id="owner-customers-live"><div class="empty"><b>Wala pang customer data</b>Walang local o demo customer records na gagawing kunwaring totoong data.</div></div></section>
+<section class="view" id="unpaid"><h2>Unpaid & Collections</h2><p class="sub">Mga natitirang balanse at payment status — Owner view only</p><div class="section-card" id="owner-unpaid-live"><div class="empty"><b>Wala pang live unpaid records</b>Hindi pa nakakonekta sa verified POS database.</div></div></section>
+<section class="view" id="reports"><h2>Reports</h2><p class="sub">Sales, collections at payment summaries</p><div class="two"><div class="section-card" id="owner-reports-sales"><div class="section-head">Sales report <span class="pill">VIEW</span></div><div class="empty">Hindi pa available ang live report.</div></div><div class="section-card" id="owner-reports-payments"><div class="section-head">Payment summary <span class="pill">VIEW</span></div><div class="empty">Hindi pa available ang live report.</div></div></div></section>
+
+<section class="view" id="inventory"><h2>Inventory & Stock</h2><p class="sub">Current stock, low-stock alerts and stock movement — Owner view only</p><div class="section-card" id="owner-inventory-live"><div class="empty"><b>Wala pang live inventory data</b>Ipapakita rito ang stock at recorded deductions mula sa Staff POS kapag verified na ang cloud connection.</div></div></section>
+<section class="view" id="activity"><h2>Staff Activity & Logbook</h2><p class="sub">Order updates, voids, edits and recorded reasons</p><div class="section-card" id="owner-activity-live"><div class="empty"><b>Wala pang live activity records</b>Hindi mag-iimbento ng staff actions. Ipapakita lamang ang aktuwal na entries mula sa POS audit log.</div></div></section>
+<section class="view" id="expenses"><h2>Expenses</h2><p class="sub">Recorded shop expenses and net summary</p><div class="section-card" id="owner-expenses-live"><div class="empty"><b>Wala pang live expense records</b>Ang net figures ay hindi ipapakita hangga't hindi nabe-verify ang expense at sales calculations.</div></div></section>
+<section class="view" id="shifts"><h2>Shifts & Cash Movements</h2><p class="sub">Current shift, opening cash and recorded cash movements</p><div class="section-card" id="owner-shifts-live"><div class="empty"><b>Wala pang live shift data</b>Hiwalay na ipapakita ang cash movements at sales collections para hindi mapaghalo ang totals.</div></div></section>
+<section class="view" id="machines"><h2>Machines & Operations</h2><p class="sub">Laundry machine status and operational overview</p><div class="section-card" id="owner-machines-live"><div class="empty"><b>Wala pang live machine data</b>Ipapakita lamang ang machine records na aktuwal na naka-save sa Staff POS.</div></div></section>
+<section class="view" id="settings"><h2>Owner Settings</h2><p class="sub">Mga setting na para lamang sa Owner iPhone app</p>
+<div class="section-card"><div class="section-head">Owner account & security <span class="pill">OWNER ONLY</span></div><div class="empty"><b>Secure Owner sign-in</b>Ihahanda ang account management pagkatapos ma-verify ang authentication provider. Walang staff password o privileged secret na ilalagay sa app.</div></div>
+<div class="section-card"><div class="section-head">Backup & data export <span class="pill">PLANNED</span></div><div class="empty">Owner reporting/export options lamang. Hindi papayagan ang pag-import o pag-overwrite ng live Staff POS data mula sa iPhone.</div></div>
+<div class="section-card"><div class="section-head">Sync & connection <span class="pill">PLANNED</span></div><div class="empty">Ipapakita rito ang online/offline status at huling matagumpay na sync kapag nakakabit na ang verified cloud database.</div></div>
+<div class="section-card"><div class="section-head">Device permissions <span class="pill">READ ONLY</span></div><div class="empty">Hindi maaaring gumawa, mag-edit, mag-void, magbayad, magbago ng inventory, mag-print o magbukas ng cash drawer mula sa Owner app.</div></div>
+</section>
+<section class="view" id="more"><h2>Shop monitoring</h2><div class="list">
+<div class="section-card"><div class="section-head">More monitoring</div><div class="empty">Piliin ang Inventory, Activity, Expenses, Shifts o Machines sa navigation.</div></div>
+<div class="section-card"><div class="section-head">Access & privacy <span class="pill">PROTECTED</span></div><div class="empty">Ang owner account ay dapat read-only sa database rules, hindi lang sa itsura ng app.</div></div>
+
+</div></section>
+</main>
+<footer>La Princesa Owner POS · Development preview · Read-only · No POS write actions</footer>
+</div>
+<nav class="nav" aria-label="Main navigation"><div class="navinner">
+<button class="active" data-view="overview"><span class="ico">⌂</span>Home</button>
+<button data-view="orders"><span class="ico">▤</span>Orders</button>
+<button data-view="customers"><span class="ico">♙</span>Customers</button>
+<button data-view="unpaid"><span class="ico">₱</span>Unpaid</button>
+<button data-view="reports"><span class="ico">▥</span>Reports</button>
+<button data-view="inventory"><span class="ico">▦</span>Stock</button>
+<button data-view="activity"><span class="ico">☷</span>Activity</button>
+<button data-view="expenses"><span class="ico">−₱</span>Expenses</button>
+<button data-view="shifts"><span class="ico">◷</span>Shifts</button>
+<button data-view="machines"><span class="ico">▤</span>Machines</button>
+<button data-view="settings"><span class="ico">⚙</span>Settings</button>
+<button data-view="more"><span class="ico">⋯</span>More</button>
+</div></nav>
+<script>
+document.querySelectorAll('.nav button').forEach(button=>button.addEventListener('click',()=>{
+ document.querySelectorAll('.nav button').forEach(item=>item.classList.toggle('active',item===button));
+ document.querySelectorAll('.view').forEach(view=>view.classList.toggle('active',view.id===button.dataset.view));
+ window.scrollTo({top:0,behavior:'smooth'});
+}));
+if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));}
+</script>
+
+<script src="./firebase-config.js"></script>
+<script type="module">
+const gate=document.getElementById('owner-auth-gate'),form=document.getElementById('owner-login-form'),button=document.getElementById('owner-login-button'),status=document.getElementById('owner-auth-status'),logout=document.getElementById('owner-logout');
+const config=window.LP_OWNER_FIREBASE_CONFIG;
+const configured=!!(config&&config.apiKey&&config.authDomain&&config.projectId&&config.appId);
+const demoMode=true;
+let auth=null,firestore=null,authApi=null,firestoreApi=null;
+function say(message,isError=false){status.textContent=message;status.classList.toggle('error',isError)}
+function normalizeIdentity(value){const v=String(value||'').trim().toLowerCase();return v.includes('@')?v:v.replace(/\s+/g,'')+'@laprincesa-pos.app'}
+async function verifyOwner(user){if(!user||!firestore||!firestoreApi)return false;const ref=firestoreApi.doc(firestore,'roles',user.uid);const snap=await firestoreApi.getDocFromServer(ref);return snap.exists()&&snap.data().role==='owner'}
+if(configured&&!demoMode){
+ try{
+  const [appApi,authModule,dbModule]=await Promise.all([import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'),import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js')]);
+  const app=appApi.initializeApp(config,'lp-owner-ios');auth=authModule.getAuth(app);firestore=dbModule.getFirestore(app);authApi=authModule;firestoreApi=dbModule;button.disabled=false;button.textContent='Secure Owner Login';say('Firebase configuration loaded. Mag-login gamit ang Owner account. Server verification ang gagamitin; hindi sapat ang cached role.');
+  authModule.onAuthStateChanged(auth,async user=>{if(!user){document.body.classList.remove('owner-authenticated');gate.hidden=false;logout.style.display='none';if(stopData){stopData();stopData=null}return}try{if(await verifyOwner(user)){document.body.classList.add('owner-authenticated');gate.hidden=true;logout.style.display='inline-block';connectOwnerData()}else{await authModule.signOut(auth);say('Walang Owner permission ang account na ito. Access denied.',true)}}catch(e){await authModule.signOut(auth);say('Hindi ma-verify ang Owner role mula sa server. Access denied; subukan kapag online at tama ang database rules.',true)}});
+ }catch(e){say('Hindi ma-initialize ang Firebase. Suriin ang public web configuration at internet connection.',true)}
+}
+logout.addEventListener('click',async()=>{if(auth&&authApi){await authApi.signOut(auth);say('Naka-logout na.');}});
+
+let stopData=null,lastSyncAt=null;
+const peso=n=>'₱ '+Number(n||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const asArray=v=>{try{const x=JSON.parse(v||'[]');return Array.isArray(x)?x:[]}catch(_){return[]}};
+const safeDate=v=>{const d=new Date(v||0);return isNaN(d)?'—':d.toLocaleString('en-PH')};
+function showRows(id,rows,format,empty){const root=document.getElementById(id);if(!root)return;root.replaceChildren();if(!rows.length){const p=document.createElement('div');p.className='empty';p.textContent=empty;root.appendChild(p);return}rows.slice(0,100).forEach(item=>{const card=document.createElement('div');card.style.cssText='padding:12px 2px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:flex-start';const left=document.createElement('div');left.style.minWidth='0';const title=document.createElement('b');title.textContent=format(item).title;const detail=document.createElement('div');detail.style.cssText='color:var(--muted);font-size:12px;margin-top:4px';detail.textContent=format(item).detail;left.append(title,detail);const right=document.createElement('b');right.style.whiteSpace='nowrap';right.textContent=format(item).amount||'';card.append(left,right);root.appendChild(card)})}
+function renderOwnerData(raw){
+ const orders=asArray(raw.laPrincesa_orders_v2),deleted=asArray(raw.laPrincesa_deleted_orders_v1),deletedIds=new Set(deleted.filter(x=>x&&x.id!=null).map(x=>String(x.id)));
+ const active=orders.filter(o=>o&&!o.deletedAt&&!deletedIds.has(String(o.id)));
+ const today=new Date().toLocaleDateString('en-CA');
+ const todayOrders=active.filter(o=>{const d=new Date(o.date||o.createdAt||0);return !isNaN(d)&&d.toLocaleDateString('en-CA')===today});
+ const total=o=>Math.max(0,Number(o.total)||0),collected=o=>Math.min(total(o),Math.max(0,Number(o.collected??o.paid)||0));
+ const gross=active.reduce((s,o)=>s+total(o),0),paid=active.reduce((s,o)=>s+collected(o),0),balance=Math.max(0,gross-paid);
+ document.getElementById('owner-metric-orders').textContent=String(todayOrders.length);
+ document.getElementById('owner-metric-gross').textContent=peso(gross);
+ document.getElementById('owner-metric-collected').textContent=peso(paid);
+ document.getElementById('owner-metric-unpaid').textContent=peso(balance);
+ showRows('owner-orders-live',active.slice().sort((a,b)=>new Date(b.date||b.createdAt||0)-new Date(a.date||a.createdAt||0)),o=>({title:o.customerName||o.customer||o.name||('Order #'+(o.id??'')),detail:(o.service||o.services||'')+' · '+safeDate(o.date||o.createdAt)+' · '+(collected(o)>=total(o)?'Paid':collected(o)>0?'Partial':'Unpaid'),amount:peso(total(o))}),'Wala pang order records sa cloud.');
+ const customers=asArray(raw.laPrincesa_customers_v2);
+ showRows('owner-customers-live',customers,c=>({title:c.name||c.customerName||'Customer',detail:[c.phone,c.address].filter(Boolean).join(' · ')||'Customer record',amount:''}),'Wala pang customer records sa cloud.');
+ showRows('owner-unpaid-live',active.filter(o=>total(o)-collected(o)>0.009).sort((a,b)=>(total(b)-collected(b))-(total(a)-collected(a))),o=>({title:o.customerName||o.customer||('Order #'+(o.id??'')),detail:(collected(o)>0?'Partial payment':'Unpaid')+' · '+safeDate(o.date||o.createdAt),amount:peso(total(o)-collected(o))}),'Walang unpaid balance sa kasalukuyang cloud records.');
+ const expenses=asArray(raw.laPrincesa_expenses_v2),inventory=asArray(raw.laPrincesa_inventory_v2),activity=asArray(raw.laPrincesa_activity_log_v1),machines=asArray(raw.laPrincesa_machines);
+ showRows('owner-inventory-live',inventory,i=>({title:i.name||i.product||i.item||'Inventory item',detail:'Stock: '+(i.stock??i.quantity??'—')+(i.unit?' '+i.unit:''),amount:''}),'Walang inventory records sa cloud.');
+ showRows('owner-activity-live',activity.slice().reverse(),a=>({title:a.action||a.type||a.event||'Activity',detail:[a.username||a.staff||a.actor,safeDate(a.date||a.timestamp),a.reason].filter(Boolean).join(' · '),amount:''}),'Walang activity records sa cloud.');
+ showRows('owner-expenses-live',expenses.slice().reverse(),e=>({title:e.category||e.name||e.description||'Expense',detail:safeDate(e.date||e.createdAt),amount:peso(e.amount||e.total)}),'Walang expense records sa cloud.');
+ const shifts=[...asArray(raw.laPrincesa_shift_v1),...asArray(raw.laPrincesa_shift_cash_v1),...asArray(raw.laPrincesa_shift_movements_v1)];
+ showRows('owner-shifts-live',shifts.slice().reverse(),x=>({title:x.type||x.action||x.name||'Shift / cash record',detail:[x.staff||x.username,safeDate(x.date||x.timestamp),x.note||x.reason].filter(Boolean).join(' · '),amount:x.amount!=null?peso(x.amount):''}),'Walang shift records sa cloud.');
+ showRows('owner-machines-live',machines,m=>({title:m.name||m.machine||'Machine',detail:m.status||m.state||'Machine record',amount:''}),'Walang machine records sa cloud.');
+ const sales=document.getElementById('owner-reports-sales');sales.textContent='Gross sales: '+peso(gross)+' · Collections: '+peso(paid)+' · Balance: '+peso(balance);
+ const pay=document.getElementById('owner-reports-payments');const methods={};active.forEach(o=>{if(Array.isArray(o.payments)&&o.payments.length)o.payments.forEach(p=>{const k=p.method||p.type||'Unspecified';methods[k]=(methods[k]||0)+Number(p.amount||p.paid||0)});else{const k=o.payMethod||'Unspecified';methods[k]=(methods[k]||0)+collected(o)}});pay.textContent=Object.keys(methods).length?Object.entries(methods).map(([k,v])=>k+': '+peso(v)).join(' · '):'Wala pang payment breakdown.';
+}
+function connectOwnerData(){
+ if(stopData||!firestoreApi||!firestore)return;
+ const banner=document.querySelector('.notice');
+ stopData=firestoreApi.onSnapshot(firestoreApi.collection(firestore,'data'),snap=>{
+  const main={},parts={};snap.forEach(d=>{const id=d.id,i=id.indexOf('~p');if(i<0)main[id]=d.data();else{const k=id.slice(0,i);(parts[k]=parts[k]||{})[Number(id.slice(i+2))]=d.data().s}});
+  const raw={};Object.keys(main).forEach(k=>{const d=main[k];let value=d.v;if(d.parts>0){value='';for(let i=0;i<d.parts;i++){const part=parts[k]?.[i];if(typeof part!=='string'){value=null;break}value+=part}}if(typeof value==='string')raw[k]=value});
+  renderOwnerData(raw);lastSyncAt=new Date();banner.innerHTML='<strong>Connected · Live POS data</strong>Huling matagumpay na update: '+lastSyncAt.toLocaleTimeString('en-PH')+'. Read-only monitoring.';
+ },err=>{banner.innerHTML='<strong>Cloud data unavailable</strong>Hindi mabasa ang POS data mula sa server. Ipinapakita lamang ang disconnected state. ('+(err.code||'connection error')+')';});
+}
+
+if(demoMode){
+ const localNow=new Date(), localISO=new Date(localNow.getTime()-localNow.getTimezoneOffset()*60000).toISOString();
+ const orders=[
+  {id:'D-1001',customerName:'Maria Santos',service:'Wash & Fold',total:850,collected:850,payMethod:'GCash',date:localISO},
+  {id:'D-1002',customerName:'Juan Dela Cruz',service:'Comforter',total:1200,collected:500,payMethod:'Cash',date:localISO},
+  {id:'D-1003',customerName:'Ana Reyes',service:'Dry Cleaning',total:650,collected:650,payMethod:'GCash',date:localISO},
+  {id:'D-1004',customerName:'Mark Villanueva',service:'Full Service',total:1500,collected:1500,payMethod:'Cash',date:localISO},
+  {id:'D-1005',customerName:'Liza Garcia',service:'Wash & Dry',total:750,collected:750,payMethod:'Maya',date:localISO},
+  {id:'D-1006',customerName:'Carlo Mendoza',service:'Blanket',total:900,collected:900,payMethod:'GCash',date:localISO},
+  {id:'D-1007',customerName:'Joy Aquino',service:'Wash & Fold',total:1100,collected:1100,payMethod:'Cash',date:localISO},
+  {id:'D-1008',customerName:'Ramon Flores',service:'Dry Cleaning',total:500,collected:500,payMethod:'GCash',date:localISO},
+  {id:'D-1009',customerName:'Ella Navarro',service:'Comforter',total:1000,collected:1000,payMethod:'Maya',date:localISO}
+ ];
+ const demoRaw={
+  laPrincesa_orders_v2:JSON.stringify(orders),
+  laPrincesa_customers_v2:JSON.stringify([
+   {name:'Maria Santos',phone:'09•• ••• 1021',address:'Sample customer'},
+   {name:'Juan Dela Cruz',phone:'09•• ••• 2042',address:'Sample customer'},
+   {name:'Ana Reyes',phone:'09•• ••• 3153',address:'Sample customer'},
+   {name:'Mark Villanueva',phone:'09•• ••• 4264',address:'Sample customer'},
+   {name:'Liza Garcia',phone:'09•• ••• 5375',address:'Sample customer'}
+  ]),
+  laPrincesa_inventory_v2:JSON.stringify([
+   {name:'Liquid Detergent',stock:18,unit:'L'},
+   {name:'Fabric Conditioner',stock:12,unit:'L'},
+   {name:'Plastic Laundry Bag',stock:145,unit:'pcs'},
+   {name:'Bleach',stock:4,unit:'L'},
+   {name:'Laundry Net',stock:22,unit:'pcs'}
+  ]),
+  laPrincesa_activity_log_v1:JSON.stringify([
+   {action:'Order created',username:'Sample Cashier',date:localISO,reason:'Demo record'},
+   {action:'Payment recorded',username:'Sample Cashier',date:localISO,reason:'GCash · Demo record'},
+   {action:'Inventory deducted',username:'Sample System',date:localISO,reason:'Demo record'}
+  ]),
+  laPrincesa_expenses_v2:JSON.stringify([
+   {category:'Detergent supply',amount:1250,date:localISO},
+   {category:'Electricity',amount:2100,date:localISO},
+   {category:'Water',amount:650,date:localISO}
+  ]),
+  laPrincesa_shift_v1:JSON.stringify([{type:'Shift opened',staff:'Sample Cashier',date:localISO,amount:2000}]),
+  laPrincesa_shift_cash_v1:JSON.stringify([{type:'Opening cash',staff:'Sample Cashier',date:localISO,amount:2000}]),
+  laPrincesa_shift_movements_v1:JSON.stringify([{type:'Cash in',staff:'Sample Cashier',date:localISO,amount:500,note:'Demo only'}]),
+  laPrincesa_machines:JSON.stringify([
+   {name:'Washer 01',status:'Available'},
+   {name:'Washer 02',status:'In use'},
+   {name:'Dryer 01',status:'Available'},
+   {name:'Dryer 02',status:'Maintenance'}
+  ])
+ };
+ document.body.classList.add('owner-authenticated');
+ gate.hidden=true;
+ const modeBadge=document.querySelector('.mode');if(modeBadge)modeBadge.textContent='DEMO · READ ONLY';
+ const banner=document.querySelector('.notice');
+ if(banner)banner.innerHTML='<strong>DEMO PREVIEW — sample data lamang</strong>Hindi ito totoong sales, customer, staff o inventory data. Walang koneksyon sa Firebase at walang binabago sa production POS.';
+ renderOwnerData(demoRaw);
+}
+
+form.addEventListener('submit',async event=>{event.preventDefault();if(!configured||!auth||!authApi){say('Hindi pa configured ang Firebase project. Hindi pinapayagan ang login.',true);return}button.disabled=true;say('Sinusuri ang login at Owner permission…');try{await authApi.setPersistence(auth,authApi.browserLocalPersistence);await authApi.signInWithEmailAndPassword(auth,normalizeIdentity(document.getElementById('owner-identity').value),document.getElementById('owner-password').value);say('Naka-login. Hinihintay ang server verification ng Owner role…')}catch(e){say(e.code==='auth/invalid-credential'?'Mali ang username/email o password.':'Hindi makapag-login: '+(e.code||'network error')+'.',true)}finally{button.disabled=false}});
+</script>
+</body></html>
