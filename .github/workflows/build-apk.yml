@@ -81,6 +81,8 @@ jobs:
               checked += 1
           print("Validated %d inline JavaScript blocks." % checked)
           PY
+      - name: Test Gross Sales accounting regression cases
+        run: node --test tests/gross-sales.test.mjs
       - name: Build installable debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Verify debug APK package, alignment and signature
