@@ -8,8 +8,6 @@ const start = html.indexOf("function lpFin(");
 const end = html.indexOf("function lpR(", start);
 assert.ok(start >= 0 && end > start, "Finance functions must exist in index.html");
 
-const finance = {};
-runInNewContext(html.slice(start, end), { Date, Number, Array, Math }, { timeout: 1000 });
 // Re-evaluate into a context so the actual production functions are tested.
 const context = { Date, Number, Array, Math };
 runInNewContext(html.slice(start, end) + "\nthis.lpStats = lpStats;", context, { timeout: 1000 });
