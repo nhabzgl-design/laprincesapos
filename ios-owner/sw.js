@@ -1,23 +1,5 @@
-/* iOS Owner POS service worker — separate cache from Android Staff POS. */
-var VERSION='lp-owner-pos-v4';
-var CORE=['./','./index.html','./manifest.webmanifest','../icon-192.png','../icon-512.png','../icon-maskable-512.png','../apple-touch-icon.png'];
-self.addEventListener('install',function(e){
-  e.waitUntil(caches.open(VERSION).then(function(c){return Promise.all(CORE.map(function(u){return c.add(u).catch(function(){})}))}).then(function(){return self.skipWaiting()}));
-});
-self.addEventListener('activate',function(e){
-  e.waitUntil(caches.keys().then(function(ks){return Promise.all(ks.filter(function(k){return k!==VERSION}).map(function(k){return caches.delete(k)}))}).then(function(){return self.clients.claim()}));
-});
-self.addEventListener('fetch',function(e){
-  var r=e.request;
-  if(r.method!=='GET')return;
-  var u=new URL(r.url),same=u.origin===self.location.origin,sdk=u.hostname==='www.gstatic.com'&&u.pathname.indexOf('/firebasejs/')===0;
-  if(!same&&!sdk)return;
-  if(r.mode==='navigate'||(same&&/\.html?$/.test(u.pathname))){
-    e.respondWith(fetch(r).then(function(res){var cp=res.clone();caches.open(VERSION).then(function(c){c.put('./index.html',cp)});return res}).catch(function(){return caches.match('./index.html').then(function(m){return m||caches.match('./')})}));
-    return;
-  }
-  e.respondWith(caches.match(r).then(function(m){
-    var net=fetch(r).then(function(res){if(res&&res.ok){var cp=res.clone();caches.open(VERSION).then(function(c){c.put(r,cp)})}return res}).catch(function(){return m});
-    return m||net;
-  }));
-});
+const CACHE='lp-owner-monitor-v5';
+const CORE=['./','./index.html','./manifest.webmanifest','./icon.svg','./firebase-config.js'];
+self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(CORE)).then(()=>self.skipWaiting())));
+self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('lp-owner-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
+self.addEventListener('fetch',e=>{const r=e.request;if(r.method!=='GET')return;const u=new URL(r.url);if(u.origin!==self.location.origin)return;if(r.mode==='navigate'){e.respondWith(fetch(r).then(res=>{const cp=res.clone();caches.open(CACHE).then(c=>c.put('./index.html',cp));return res}).catch(()=>caches.match('./index.html')));return}e.respondWith(caches.match(r).then(cached=>cached||fetch(r).then(res=>{if(res.ok){const cp=res.clone();caches.open(CACHE).then(c=>c.put(r,cp))}return res})))});
