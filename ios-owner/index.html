@@ -128,10 +128,12 @@ async function verifyOwner(user){
  }catch(e){$('gate').classList.remove('hidden');$('app').classList.add('hidden');$('login-error').textContent=e.message||'Hindi ma-verify ang Owner account.'}
 }
 async function initFirebase(){
+ $('login-button').disabled=true;
  if(!cfg.apiKey||!cfg.projectId){$('login-button').disabled=true;$('login-error').textContent='Hindi naka-configure ang verified Firebase project.';return}
  const [appMod,authMod,fireMod]=await Promise.all([import(FIREBASE_BASE+'firebase-app.js'),import(FIREBASE_BASE+'firebase-auth.js'),import(FIREBASE_BASE+'firebase-firestore.js')]);
  const app=appMod.initializeApp(cfg);auth=authMod.getAuth(app);db=fireMod.getFirestore(app);api={...authMod,...fireMod};
  await authMod.setPersistence(auth,authMod.browserLocalPersistence);
+ $('login-button').disabled=false;
  stopAuth=authMod.onAuthStateChanged(auth,user=>{if(user)verifyOwner(user);else{stopWatchers();currentUser=null;$('gate').classList.remove('hidden');$('app').classList.add('hidden')}});
 }
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-button').disabled=true;$('login-error').textContent='Sinusuri ang login…';try{await api.signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(err){$('login-error').textContent='Hindi makapag-login: '+(err.code||'network error')}finally{$('login-button').disabled=false}});
@@ -144,6 +146,7 @@ function downloadBackup(data){
  a.href=url;a.download='LaPrincesa_PreClear_'+new Date().toISOString().replace(/[:.]/g,'-')+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
 async function clearOperationalData(){
+ let committedGeneration=null;
  if(!currentUser||!ownerName||clearBusy)return;
  if(!navigator.onLine){alert('Kailangan ng internet para ligtas na maitala ang Clear Data. Walang binago.');return}
  if(!confirm('OWNER CLEAR DATA\\n\\nBuburahin lamang ang Sales/Orders, Deleted Records, Inventory at Activity Log sa shared Staff POS database.\\n\\nPananatilihin ang Customers, Expenses, Services, Machines, accounts, printer settings at ibang settings. Magda-download muna ng safety backup.'))return;
@@ -160,12 +163,13 @@ async function clearOperationalData(){
    CLEAR_KEYS.forEach(k=>tx.set(api.doc(db,'data',k),{v:'[]',parts:0,t:now,by:String(currentUser.uid),g:newGeneration}));
    return newGeneration;
   });
+  committedGeneration=next;
   const after=await api.getDocsFromServer(api.collection(db,'data'));
   const chunks=[];
   after.forEach(d=>{if(/^laPrincesa_(orders_v2|deleted_orders_v1|inventory_v2|activity_log_v1)~p[0-9]+$/.test(d.id)&&Number(d.data().g)!==next)chunks.push(d.ref)});
   for(let i=0;i<chunks.length;i+=450){const batch=api.writeBatch(db);chunks.slice(i,i+450).forEach(ref=>batch.delete(ref));await batch.commit()}
   alert('Matagumpay ang Owner Clear Data. Nabura ang Sales/Orders, Deleted Records, Inventory at Activity Log. Napanatili ang Customers, Expenses, Services, Machines, accounts at printer settings.');
- }catch(e){alert('Hindi nakumpleto ang Clear Data. Walang lokal na POS data na binago. Error: '+(e.code||e.message||'unknown'))}
+ }catch(e){if(committedGeneration!==null){alert('Naitala na ang Clear Data generation '+committedGeneration+'. May problema lamang sa paglilinis ng lumang chunk files; hindi na dapat lumabas ang lumang records. Error: '+(e.code||e.message||'unknown'))}else{alert('Hindi natuloy ang Clear Data. Walang operational data na binago. Error: '+(e.code||e.message||'unknown'))}}
  finally{clearBusy=false;$('clear-data').disabled=false}
 }
 $('clear-data').addEventListener('click',clearOperationalData);
@@ -173,5 +177,6 @@ window.addEventListener('online',()=>setConnection('Internet restored • naghih
 window.addEventListener('offline',()=>setConnection('Offline • hindi live ang data',true));
 try{await initFirebase()}catch(e){$('login-button').disabled=true;$('login-error').textContent='Hindi ma-load ang Firebase: '+(e.message||'network error')}
 </script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('./sw.js').catch(function(){})})}</script>
 </body>
 </html>
