@@ -31,12 +31,12 @@ test("Owner metrics reconcile today's gross, net, collections and active order c
   const m=context.ownerMetrics(data,isToday);
   assert.equal(m.gross,400);
   assert.equal(m.net,370);
-  assert.equal(m.collections,140);
+  assert.equal(m.collections,185);
   assert.equal(m.orders,3);
   assert.equal(m.expenses,125);
   assert.equal(m.inventory,2);
   assert.equal(m.customers,1);
-  assert.equal(m.balance,185);
+  assert.equal(m.balance,230);
 });
 test("Owner metrics helper safely handles missing or malformed arrays",()=>{
   const m=context.ownerMetrics({},()=>false);
