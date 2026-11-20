@@ -65,7 +65,7 @@ const FIREBASE_BASE='https://www.gstatic.com/firebasejs/10.14.1/';
 const CLEAR_KEYS=['laPrincesa_orders_v2','laPrincesa_deleted_orders_v1','laPrincesa_inventory_v2','laPrincesa_activity_log_v1'];
 const PRESERVED_KEYS=['laPrincesa_customers_v2','laPrincesa_expenses_v2','laPrincesa_services_v2','laPrincesa_machines'];
 const $=id=>document.getElementById(id);
-let auth=null,db=null,api=null,currentUser=null,ownerName='',currentData={},generation=0,stopData=null,stopGeneration=null,stopAuth=null,clearBusy=false;
+let auth=null,db=null,api=null,currentUser=null,ownerName='',ownerVerified=false,currentData={},generation=0,stopData=null,stopGeneration=null,stopAuth=null,clearBusy=false;
 const money=n=>'₱'+(Math.round((Number(n)||0)*100)/100).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
 function safeArray(v){if(Array.isArray(v))return v;if(typeof v==='string'){try{const x=JSON.parse(v);return Array.isArray(x)?x:[]}catch(e){}}return[]}
 function isOperational(k){return CLEAR_KEYS.includes(k)}
@@ -114,18 +114,21 @@ function render(data){
 }
 function stopWatchers(){if(stopData){stopData();stopData=null}if(stopGeneration){stopGeneration();stopGeneration=null}}
 async function verifyOwner(user){
- stopWatchers();currentUser=user;setConnection('Sinusuri ang Owner account…',true);
+ stopWatchers();ownerVerified=false;currentUser=null;ownerName='';$('app').classList.add('hidden');$('gate').classList.remove('hidden');setConnection('Sinusuri ang Owner account…',true);
  try{
   const roleSnap=await api.getDocFromServer(api.doc(db,'roles',user.uid));
+  if(!auth.currentUser||auth.currentUser.uid!==user.uid)return;
   if(!roleSnap.exists()||roleSnap.data().role!=='owner'){await api.signOut(auth);throw new Error('Owner account lang ang pinapayagang magbukas ng app na ito.')}
-  ownerName=roleSnap.data().username||user.email||'Owner';
+  const metaRef=api.doc(db,'meta','clear_generation');
+  const gen=await api.getDocFromServer(metaRef);
+  if(!auth.currentUser||auth.currentUser.uid!==user.uid)return;
+  generation=gen.exists()?Number(gen.data().generation)||0:0;
+  currentUser=user;ownerName=roleSnap.data().username||user.email||'Owner';ownerVerified=true;
   $('owner-label').textContent='Owner: '+ownerName+' • Monitoring-only • Read-only';
   $('gate').classList.add('hidden');$('app').classList.remove('hidden');
-  const metaRef=api.doc(db,'meta','clear_generation');
-  try{const gen=await api.getDocFromServer(metaRef);generation=gen.exists()?Number(gen.data().generation)||0:0}catch(e){generation=0}
   stopGeneration=api.onSnapshot(metaRef,s=>{const next=s.exists()?Number(s.data().generation)||0:0;if(next>generation){generation=next;setConnection('May bagong Clear Data update',false)}},e=>setConnection('Hindi mabasa ang sync status',true));
   stopData=api.onSnapshot(api.collection(db,'data'),snap=>{currentData=parseSnapshot(snap);render(currentData);setConnection(snap.metadata&&snap.metadata.fromCache?'Cached data • naghihintay ng live sync':'LIVE • Updated '+new Date().toLocaleTimeString('en-PH'),!!(snap.metadata&&snap.metadata.fromCache))},e=>setConnection('Sync error: '+(e.code||'connection'),true));
- }catch(e){$('gate').classList.remove('hidden');$('app').classList.add('hidden');$('login-error').textContent=e.message||'Hindi ma-verify ang Owner account.'}
+ }catch(e){ownerVerified=false;currentUser=null;ownerName='';$('gate').classList.remove('hidden');$('app').classList.add('hidden');$('login-error').textContent=e.message||'Hindi ma-verify ang Owner account.'}
 }
 async function initFirebase(){
  $('login-button').disabled=true;
@@ -134,7 +137,7 @@ async function initFirebase(){
  const app=appMod.initializeApp(cfg);auth=authMod.getAuth(app);db=fireMod.getFirestore(app);api={...authMod,...fireMod};
  await authMod.setPersistence(auth,authMod.browserLocalPersistence);
  $('login-button').disabled=false;
- stopAuth=authMod.onAuthStateChanged(auth,user=>{if(user)verifyOwner(user);else{stopWatchers();currentUser=null;$('gate').classList.remove('hidden');$('app').classList.add('hidden')}});
+ stopAuth=authMod.onAuthStateChanged(auth,user=>{if(user)verifyOwner(user);else{stopWatchers();ownerVerified=false;currentUser=null;ownerName='';currentData={};$('gate').classList.remove('hidden');$('app').classList.add('hidden')}});
 }
 $('login-form').addEventListener('submit',async e=>{e.preventDefault();$('login-button').disabled=true;$('login-error').textContent='Sinusuri ang login…';try{await api.signInWithEmailAndPassword(auth,$('email').value.trim(),$('password').value)}catch(err){$('login-error').textContent='Hindi makapag-login: '+(err.code||'network error')}finally{$('login-button').disabled=false}});
 $('logout').addEventListener('click',()=>api.signOut(auth));
@@ -147,7 +150,7 @@ function downloadBackup(data){
 }
 async function clearOperationalData(){
  let committedGeneration=null;
- if(!currentUser||!ownerName||clearBusy)return;
+ if(!ownerVerified||!currentUser||!ownerName||clearBusy)return;
  if(!navigator.onLine){alert('Kailangan ng internet para ligtas na maitala ang Clear Data. Walang binago.');return}
  if(!confirm('OWNER CLEAR DATA\\n\\nBuburahin lamang ang Sales/Orders, Deleted Records, Inventory at Activity Log sa shared Staff POS database.\\n\\nPananatilihin ang Customers, Expenses, Services, Machines, accounts, printer settings at ibang settings. Magda-download muna ng safety backup.'))return;
  clearBusy=true;$('clear-data').disabled=true;
@@ -163,7 +166,7 @@ async function clearOperationalData(){
    CLEAR_KEYS.forEach(k=>tx.set(api.doc(db,'data',k),{v:'[]',parts:0,t:now,by:String(currentUser.uid),g:newGeneration}));
    return newGeneration;
   });
-  committedGeneration=next;
+  committedGeneration=next;generation=next;
   const after=await api.getDocsFromServer(api.collection(db,'data'));
   const chunks=[];
   after.forEach(d=>{if(/^laPrincesa_(orders_v2|deleted_orders_v1|inventory_v2|activity_log_v1)~p[0-9]+$/.test(d.id)&&Number(d.data().g)!==next)chunks.push(d.ref)});
