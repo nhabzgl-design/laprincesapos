@@ -1,51 +1,35 @@
-# La Princesa Owner POS — Authentication & Security Plan
+# La Princesa Owner Monitoring — Authentication & Security
 
-Status: repository-source audit and iOS development only. The live Firebase project and deployed Firestore rules have not been verified.
+## App roles
+- Android remains the Staff POS, including its existing receipt-print sequence, printer bridge and cash-drawer trigger.
+- iOS is an Owner-only, read-only monitoring PWA. It is not a second checkout/POS terminal.
 
-## Intended app roles
+## Authentication gate
+1. Sign in through Firebase Authentication.
+2. Fetch `roles/{uid}` from the Firestore server.
+3. Require an existing document with `role == "owner"`.
+4. Deny Staff, missing roles, and failed server lookups.
+5. Restore Firebase Auth persistence after refresh, then re-check the server-side Owner role.
 
-- Android: Staff POS. Keep the installed APK, production source, receipt-print sequence, printer bridge, and cash-drawer behavior unchanged.
-- iPhone: full Owner POS, not read-only monitoring. Owner may use the Owner-level order, payment, customer, inventory, expense, shift, report, settings, and staff-management functions.
-- Both clients must use the exact same verified Firebase project and Firestore data format.
+## iOS permissions and UI scope
+The iOS app can read the shared monitoring data and display orders/sales, collections, outstanding balances, inventory and expenses. It must not expose order creation, checkout, payment entry, inventory editing, expense entry, staff administration, settings editing, printing, printer or cash-drawer functions.
 
-## Current source findings
+The only intentional write action is the Owner-only Clear Operational Data function. It writes the generation barrier and empty values for exactly four operational keys, after a downloadable safety backup and explicit confirmation.
 
-- Android `main/index.html` has blank Firebase `apiKey` and `projectId` values in checked-in source. A different runtime injection has not been verified.
-- The checked-in cloud module uses Firebase Auth and Firestore collection `data`, with document IDs based on the POS `laPrincesa_*` localStorage keys and optional chunk documents.
-- The existing cloud module reads the collection during hydration and writes local POS state back to Firestore. The source does not establish a continuous remote snapshot listener.
-- No Firestore rules file, Firebase project configuration, or verified deployed rules were found in the repository.
-- iOS Owner config is intentionally blank until the actual Android project is confirmed.
+## Data protection
+Clear scope:
+- `laPrincesa_orders_v2`
+- `laPrincesa_inventory_v2`
+- `laPrincesa_deleted_orders_v1`
+- `laPrincesa_activity_log_v1`
 
-## iOS Owner authentication behavior
+Preserve Customers, Expenses, Services, Machines, accounts, printer settings, and all unrelated records.
 
-The iOS Owner role lookup now:
-1. Reads `roles/{uid}` from Firestore on login.
-2. Requires an existing server-returned role document with `role == "owner"`.
-3. Denies access if the role is missing or is not Owner.
-4. Does not create the first Owner from the iOS client.
-5. Does not use cached local role data as authorization after a failed server check.
+Firestore Security Rules are authoritative. The client UI being read-only does not itself prevent a user with broader Firestore write permissions from bypassing the UI. Confirm that deployed rules allow the intended Owner reads and the narrowly scoped clear operation while preserving Staff writes. Do not replace live rules with guessed rules.
 
-## Required database security
-
-Because the iPhone app is full Owner POS, its verified Owner identity needs the intended Owner read/write permissions for the existing POS data and staff-management operations. Staff permissions and existing Android write paths must remain unchanged.
-
-Before any rules change:
-- Export and review the currently deployed rules.
-- Identify every Firestore path and operation used by Android Staff and iOS Owner.
-- Preserve existing Staff permissions.
-- Restrict Owner operations to authenticated accounts with a server-side Owner role.
-- Prevent Staff from gaining Owner-only account or settings permissions.
-- Test allowed Owner operations and denied Staff/unauthenticated operations in a test project or emulator.
-- Never deploy a generic ruleset based only on this document.
-
-## Release blockers
-
-- [ ] Confirm the Firebase project ID used by the installed Android POS.
-- [ ] Confirm current Android POS records are successfully present in that project's Firestore `data` collection.
-- [ ] Confirm the existing Owner Auth UID and `roles/{uid}` record.
-- [ ] Review the deployed Firestore rules and preserve Android Staff behavior.
-- [ ] Test Owner order, payment, inventory, customer, expense, shift, report, and staff operations.
-- [ ] Reconcile totals and deleted/voided records against Android reports.
-- [ ] Verify remote-change sync, concurrent edits, reconnect, and stale/offline behavior.
-- [ ] Confirm Android source, APK workflow, printer, receipt, and cash drawer remain unchanged.
-- [ ] Complete iPhone Safari/PWA testing before a production release.
+## Release checks
+- Confirm the existing Owner account can sign in and server role verification succeeds.
+- Confirm realtime Staff-to-iPhone updates without manual refresh.
+- Reconcile financial totals and inventory against live Staff POS records.
+- Test the generation barrier and stale/offline device behavior safely.
+- Keep the iOS PWA on a separate Netlify site; do not replace the Staff POS site.
