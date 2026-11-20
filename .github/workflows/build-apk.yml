@@ -2,9 +2,9 @@ name: Build Native APK
 
 on:
   push:
-    branches: [ main, fix-main-apk-workflow ]
+    branches: [ main, fix-main-apk-workflow, lp-production-clear-data-fix, lp-safe-clear-scope-repair ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, lp-production-clear-data-fix, gross-sales-accounting-fix ]
   workflow_dispatch:
 
 permissions:
@@ -33,12 +33,18 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.0.2'
-      - name: Prepare bundled POS HTML and launcher icon
+      - name: Prepare bundled POS HTML, Firebase config and launcher icon
         run: |
           mkdir -p app/src/main/assets app/src/main/res/mipmap-nodpi
           cp index.html app/src/main/assets/index.html
+          if [ -f firebase-config.js ]; then
+            cp firebase-config.js app/src/main/assets/firebase-config.js
+          else
+            printf '%s\\n' 'window.LP_FIREBASE = {apiKey:"",authDomain:"",projectId:"",storageBucket:"",messagingSenderId:"",appId:""};' > app/src/main/assets/firebase-config.js
+          fi
           cp icon-maskable-512.png app/src/main/res/mipmap-nodpi/ic_launcher.png
           test -s app/src/main/assets/index.html
+          test -s app/src/main/assets/firebase-config.js
           test -s app/src/main/res/mipmap-nodpi/ic_launcher.png
       - name: Validate inline JavaScript syntax
         run: |
@@ -75,8 +81,19 @@ jobs:
               checked += 1
           print("Validated %d inline JavaScript blocks." % checked)
           PY
+      - name: Test Gross Sales accounting regression cases
+        run: node --test tests/gross-sales.test.mjs
       - name: Build installable debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Verify debug APK package, alignment and signature
+        run: |
+          BT="$ANDROID_HOME/build-tools/34.0.0"
+          APK="$(find app/build/outputs/apk/debug -name '*.apk' -print -quit)"
+          test -n "$APK"
+          "$BT/aapt" dump badging "$APK" | grep -F "package: name='com.laprincesa.pos'"
+          "$BT/zipalign" -c -v 4 "$APK"
+          "$BT/apksigner" verify --verbose "$APK"
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -107,7 +124,22 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease --stacktrace
-      - name: Upload signed release APK
+      - name: Verify APK package, alignment, and signature
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/34.0.0"
+          DEBUG_APK="app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$DEBUG_APK"
+          "$BUILD_TOOLS/zipalign" -c -v 4 "$DEBUG_APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$DEBUG_APK"
+          "$BUILD_TOOLS/aapt" dump badging "$DEBUG_APK" | grep -E "^package: name='com\\.laprincesa\\.pos'"
+          if [ -s app/build/outputs/apk/release/app-release.apk ]; then
+            RELEASE_APK="app/build/outputs/apk/release/app-release.apk"
+            "$BUILD_TOOLS/zipalign" -c -v 4 "$RELEASE_APK"
+            "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$RELEASE_APK"
+            "$BUILD_TOOLS/aapt" dump badging "$RELEASE_APK" | grep -E "^package: name='com\\.laprincesa\\.pos'"
+          fi
+      - name: Upload signed release APK for device testing
         if: steps.signing.outputs.available == 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -115,3 +147,13 @@ jobs:
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Install APK on Android 14 emulator
+        if: steps.signing.outputs.available == 'true'
+        env:
+          ANDROID_I_WANT_MY_TCG: 'yes'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          profile: pixel_2
+          script: adb install -r app/build/outputs/apk/release/app-release.apk
