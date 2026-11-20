@@ -3481,7 +3481,19 @@ logs.sort(function(a,b){return new Date(b.at||0)-new Date(a.at||0)});
 if(!confirm('I-IMPORT ang Daily Staff Backup?\n\nStaff: '+d.staffAccount+'\nPetsa: '+d.date+'\nOrders sa backup: '+d.orders.length+'\nBagong orders na idaragdag: '+(newOrders.length-orders.length)+'\nExpenses sa backup: '+(d.expenses||[]).length+'\n\nIdadagdag lamang ang hindi pa umiiral na records. Hindi papalitan ang kasalukuyang data. Hindi gagalawin ang inventory at hindi muling ibabawas ang stock.'))return;
 safety('before-daily-import');
 localStorage.setItem(P+'orders_v2',JSON.stringify(newOrders));localStorage.setItem(P+'expenses_v2',JSON.stringify(newExpenses));localStorage.setItem(P+'deleted_orders_v1',JSON.stringify(newDeleted));localStorage.setItem(P+'activity_log_v1',JSON.stringify(logs.slice(0,1000)));
-msg('Daily Backup na-import. Nadagdag: '+(newOrders.length-orders.length)+' orders. Hindi ginalaw ang inventory. Nagre-reload...');setTimeout(function(){location.reload()},900)
+var cloud=window.LPCloud;
+if(!cloud||!cloud.enabled){
+ msg('Na-import sa Owner device ang Daily Backup, pero hindi aktibo ang Firebase cloud sync. Hindi pa ito maipapakita sa iOS.');
+ return;
+}
+msg('Na-import sa Owner device. Ipinapadala sa shared Firebase... Huwag isara ang app.');
+cloud.flushNow(30000).then(function(){
+ msg('Naipadala na sa shared Firebase ang Staff Daily Backup. Dapat itong lumabas sa iOS Owner Monitoring kapag natanggap ng live listener. Hindi ginalaw ang inventory.');
+ setTimeout(function(){location.reload()},700);
+}).catch(function(e){
+ var reason=e&&e.code==='lp/sync-timeout'?'Nag-timeout ang Firebase sync.':e&&e.code==='lp/cloud-not-ready'?'Hindi handa ang Firebase cloud session.':'Hindi nakumpirma ang Firebase sync.';
+ msg('Na-import sa Owner device pero HINDI pa kumpirmado sa cloud. '+reason+' Panatilihing bukas ang app at huwag ulitin ang import hangga\'t hindi nasusuri ang cloud status.');
+});
 }
 function importFile(f){var r=new FileReader();r.onload=function(){var j;try{j=JSON.parse(r.result)}catch(e){msg('Hindi valid na JSON file.');return}var err=validate(j);if(err){msg('Hindi na-import: '+err);return}if(j.backupType==='staff_daily_transactions'){importDaily(j);return}var restoreData=Object.assign({},j.data),readArray=function(raw){try{var a=JSON.parse(raw||'[]');return Array.isArray(a)?a:[]}catch(e){return[]}},currentDeleted=readArray(localStorage.getItem(P+'deleted_orders_v1')),backupDeleted=readArray(restoreData[P+'deleted_orders_v1']),mergedDeleted=[],seenDeleted={};currentDeleted.concat(backupDeleted).forEach(function(x){if(!x||x.id==null)return;var id=String(x.id);if(!seenDeleted[id]){seenDeleted[id]=1;mergedDeleted.push(x)}});restoreData[P+'deleted_orders_v1']=JSON.stringify(mergedDeleted);var currentDeleteLog=readArray(localStorage.getItem(P+'activity_log_v1')).filter(function(x){return x&&x.event==='order_deleted'}),backupLog=readArray(restoreData[P+'activity_log_v1']),mergedLog=[],seenLog={};currentDeleteLog.concat(backupLog).forEach(function(x){var key=String(x.transactionId||x.orderNo||'')+'|'+String(x.at||'')+'|'+String(x.event||'');if(!seenLog[key]){seenLog[key]=1;mergedLog.push(x)}});mergedLog.sort(function(a,b){return new Date(b.at||0)-new Date(a.at||0)});restoreData[P+'activity_log_v1']=JSON.stringify(mergedLog.slice(0,1000));var c=j.counts||{},cur=pack(snapshot()).counts;if(!confirm('I-RESTORE ang backup na ito?\n\nPetsa: '+(j.exportedAt||'?')+'\nBackup: '+(c.orders||0)+' orders, '+(c.customers||0)+' customers, '+(c.inventory||0)+' inventory\nKasalukuyan: '+cur.orders+' orders, '+cur.customers+' customers, '+cur.inventory+' inventory\n\nPapalitan ang LAHAT ng data. Gagawa muna ng safety backup.'))return;safety('before-restore');keys().forEach(function(k){localStorage.removeItem(k)});Object.keys(restoreData).filter(function(k){return k.indexOf(P)===0}).forEach(function(k){localStorage.setItem(k,restoreData[k])});msg('Na-restore. Nagre-reload...');setTimeout(function(){location.reload()},1200)};r.readAsText(f)}
 function clearAll(){
@@ -3797,7 +3809,21 @@ L.wipe=function(){
   throw e;
  });
 };
-L.flushNow=function(){flush();return Promise.race([Promise.all(inflight),new Promise(function(r){setTimeout(r,4000)})])};
+L.flushNow=function(timeoutMs){
+ if(!L.enabled)return Promise.reject({code:'lp/cloud-disabled'});
+ if(!ready)return Promise.reject({code:'lp/cloud-not-ready'});
+ clearTimeout(tm);flush();
+ return new Promise(function(resolve,reject){
+  var end=Date.now()+(Number(timeoutMs)>0?Number(timeoutMs):30000);
+  function check(){
+   if(!ready){reject({code:'lp/cloud-not-ready'});return}
+   if(!Object.keys(dirty).length&&pend===0&&inflight.length===0){resolve({synced:true});return}
+   if(Date.now()>=end){reject({code:'lp/sync-timeout'});return}
+   setTimeout(check,250);
+  }
+  check();
+ });
+};
 L.syncNow=function(){return L.hydrate()};
 L.users=function(){return L.load().then(function(m){var F=m.F;return F.getDocs(F.collection(db,'roles')).then(function(s){var a=[];s.forEach(function(d){var x=d.data();a.push({uid:d.id,username:x.name||x.username||'?',role:x.role})});return a})})};
 L.addStaff=function(username,pw){
