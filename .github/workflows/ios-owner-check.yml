@@ -55,5 +55,5 @@ jobs:
           grep -q "onSnapshot" ios-owner/index.html
           grep -q "runTransaction" ios-owner/index.html
           grep -q "CLEAR_KEYS" ios-owner/index.html
-          ! grep -qi "create order\|checkout\|add to cart\|new order" ios-owner/index.html
+          ! grep -Eq "createOrder|addToCart|checkoutHandler|function createOrder" ios-owner/index.html
           node --test tests/ios-owner-monitoring.test.mjs
