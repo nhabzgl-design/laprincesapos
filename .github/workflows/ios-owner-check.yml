@@ -85,4 +85,4 @@ jobs:
           test -s ios-owner/sw.js
           grep -q "LP_OWNER_BUILD" ios-owner/index.html
           grep -q "role!=='owner'" ios-owner/index.html
-          grep -q "window.LP_OWNER_FIREBASE_CONFIG = null" ios-owner/firebase-config.js
+          grep -q 'projectId: "la-princesa-pos-staging"' ios-owner/firebase-config.js
