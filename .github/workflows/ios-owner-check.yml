@@ -87,7 +87,13 @@ jobs:
           grep -q "projectId: \"laprincesa-pos\"" ios-owner/firebase-config.js
           ! grep -q "serviceAccount\|private_key" ios-owner/firebase-config.js
           grep -q "lpmeta_clear_generation_v1" ios-owner/index.html
-          grep -q "cloudGeneration>localGeneration" ios-owner/index.html
           grep -q "getDocsFromServer" ios-owner/index.html
           grep -q "getDocFromServer" ios-owner/index.html
-          grep -q "Number(d.g)!==cloudGeneration" ios-owner/index.html
+          grep -q "onSnapshot" ios-owner/index.html
+          grep -q "roles" ios-owner/index.html
+          grep -q "Clear Operational Data" ios-owner/index.html
+          grep -q "orders_v2" ios-owner/index.html
+          grep -q "inventory_v2" ios-owner/index.html
+          grep -q "deleted_orders_v1" ios-owner/index.html
+          grep -q "activity_log_v1" ios-owner/index.html
+          ! grep -Eq "Create New Order|Save Expense|Add Staff|Checkout|bt-printer" ios-owner/index.html
