@@ -1,43 +1,51 @@
-# La Princesa iOS Owner POS
+# La Princesa iOS Owner Monitoring
 
-Status: development PWA; not yet connected to a verified live Firebase project and not production-ready.
+Status: development PWA on `ios-owner-monitoring-dev`. The app code now targets the same Firebase project ID as the Staff POS, but production login, live data reconciliation, and physical iPhone testing are still pending.
 
-## Product scope
+## Exact product scope
 
-A separate iPhone-friendly Owner POS for the shop. It is intended to provide the Owner's full POS access using the same business records as the Android Staff POS. Android remains the Staff POS and its installed APK, source, printer bridge, receipt sequence, and cash-drawer behavior are out of scope for changes.
+The iOS app is **Owner Monitoring only**. It is not a second POS.
 
-The iOS Owner app is not a read-only monitor. Owner access is intended to include the POS functions already exposed by the Owner role in the shared app: orders, payments, customers, inventory, services/products, expenses, shifts, reports, settings, and staff-account administration. Access must be granted only to an existing server-verified Owner account.
+- Read-only view of Staff POS sales, orders, collections, outstanding balances, expenses, inventory, customers, and activity.
+- Live Firestore listener (`onSnapshot`) on the existing `data` collection.
+- Server-verified Owner login through `roles/{uid}`; Staff accounts are denied.
+- The only action that writes to the shared POS database is the Owner-only **Clear Operational Data** action.
+- No order entry, checkout, product editing, payment entry, inventory editing, printer, receipt, or cash-drawer controls.
 
-## Important current limitations
+## Shared data source
 
-- `ios-owner/firebase-config.js` is intentionally blank. No verified Firebase project ID is available in the checked-in source.
-- The Android `main/index.html` also contains blank Firebase `apiKey` and `projectId` values. Repository source alone does not prove that the installed Android app is connected to Firestore.
-- The iOS client uses the existing Firestore `data` document format and the same `laPrincesa_*` localStorage keys. Its current cloud module performs an initial one-time Firestore read and uploads local changes. It does not yet have a verified continuous remote snapshot subscription; manual sync is not the same as real-time sync.
-- No Firestore rules file or verified deployed rules were found in the repository.
-- No Netlify deployment or real iPhone Safari test has been completed.
-- iOS browser printing and cash-drawer support must not be assumed to match Android native Bluetooth behavior. Android remains the hardware POS unless iOS hardware compatibility is separately tested.
+`ios-owner/firebase-config.js` uses the existing Staff POS Firebase Web App project ID `laprincesa-pos`. The dashboard reads the existing `laPrincesa_*` documents from Firestore `data`, including chunk documents named `<key>~p<index>`.
 
-## Security change in this branch
+A configured project ID does not by itself prove that the live Owner account can authenticate or that the installed Staff device has current records in this project. Those checks must be completed before release.
 
-The iOS Owner role check now requires a server-read `roles/{uid}` document with `role == "owner"`. It no longer creates the first Owner from the iOS client and no longer accepts a cached local role after a failed server check. A missing role or failed server check denies access.
+## Owner-only Clear Operational Data
 
-This client-side check is not a replacement for Firestore Security Rules. Rules must preserve existing Android Staff access and permit the verified Owner to perform only the intended Owner operations.
+The action clears only:
+- Sales / Orders: `laPrincesa_orders_v2`
+- Deleted Records: `laPrincesa_deleted_orders_v1`
+- Inventory: `laPrincesa_inventory_v2`
+- Activity Log: `laPrincesa_activity_log_v1`
 
-## Safe implementation sequence
+It first offers a JSON safety backup, then atomically increments `meta/clear_generation` and writes empty root markers for those four keys. It removes only obsolete chunks belonging to those keys.
 
-1. Verify the exact Firebase project actually used by the installed Android Staff POS and confirm that its current orders are present in Firestore `data`.
-2. Verify the existing Owner Firebase Auth account and its server-side `roles/{uid}` document.
-3. Inspect and back up the currently deployed Firestore rules before changing anything. Do not deploy guessed rules over a live Staff POS.
-4. Confirm the existing Firestore data format, chunk documents, and write permissions. Preserve the Android app's current write paths.
-5. Finish and test the iOS Owner POS against a non-production/test dataset, including Owner-only login, CRUD operations, staff administration, and data reconciliation.
-6. Add and test safe remote-change synchronization. Avoid claiming real-time sync until remote changes are observed on the iPhone without manual refresh and concurrent edits have been tested.
-7. Configure a separate Netlify draft site using branch `ios-owner-monitoring-dev` and publish directory `ios-owner`. Do not replace the Staff POS site.
-8. Test on iPhone Safari and install to Home Screen. Confirm offline/stale state is clearly shown.
+It preserves Customers, Expenses, Services, Machines, Owner/Staff accounts, printer settings, and all unrelated documents.
+
+## Required dependency
+
+PR #37 (`lp-safe-clear-scope-repair`) contains the matching Android Staff generation-barrier handling and Firestore rules. It is still a separate draft. The synchronized Clear Data action must not be used in production until that change is reviewed, merged, and its rules are deployed to the same verified Firebase project with explicit Owner approval.
+
+## Validation and remaining release checks
+
+- Current iOS Owner PWA workflow: syntax, manifest, monitoring-only static checks, and Owner financial helper tests passed.
+- Not yet verified on a physical iPhone.
+- Not yet verified with the actual production Owner login and live Staff records.
+- Reconcile Gross Sales, Net Sales, collections, unpaid balance, expenses, orders, and inventory against the Staff POS.
+- Test Clear Data with every Staff device online, offline, and reconnecting.
+- Verify Firestore rules preserve normal Staff order/payment/inventory writes and reject stale offline operational writes.
+- Do not merge PR #30, publish a production Netlify site, or deploy Firestore rules without explicit release approval.
 
 ## Non-negotiable protections
 
-- Do not modify the Android `main` branch or its APK workflow for this iOS work.
-- Do not change the printer bridge, receipt-print order, or cash-drawer trigger in Android.
-- Do not merge PR #30 or publish a production Netlify site without explicit approval.
-- Never put Firebase service-account JSON, Admin SDK credentials, private keys, or user passwords in this repository.
-- Never claim that the apps share live data until the actual runtime Firebase project and successful cross-device tests are verified.
+- Do not alter Android Staff order processing, receipt printing, printer bridge, or cash-drawer trigger as part of iOS work.
+- Do not delete Customers, Expenses, Services, Machines, accounts, printer settings, or unrelated data during Clear Data.
+- Never place Firebase Admin credentials, service-account JSON, private keys, or user passwords in the client.
