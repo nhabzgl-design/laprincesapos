@@ -1,44 +1,41 @@
-# La Princesa Owner POS — Security & Regression Test Matrix
+# La Princesa Owner Monitoring — Security & Regression Test Matrix
 
-Status: planned tests; no live Firebase project or deployed Firestore rules have been verified.
-
-## Authentication tests
-
+## Authentication
 | Case | Expected result |
 |---|---|
-| Firebase config missing | Login disabled; dashboard hidden |
+| Firebase config missing or wrong project | No dashboard; clear configuration error |
 | Invalid credentials | Login rejected |
-| Staff account signs in to iOS Owner | Server role lookup returns staff; sign out and deny |
-| Authenticated account has no role document | Deny; no first-Owner bootstrap |
-| Existing server role document says Owner | Allow Owner POS |
-| Role lookup denied, offline, or server unavailable | Fail closed; do not trust cached role |
-| User logs out | Hide Owner dashboard and clear authenticated session |
+| Staff account signs in | Server role lookup returns Staff; sign out and deny |
+| Authenticated user has no role document | Deny |
+| Server role document says Owner | Allow read-only dashboard |
+| Role lookup fails or is offline | Fail closed; do not trust cached role |
+| Page refresh with valid Owner session | Restore Auth session and re-verify Owner role |
+| Logout | Stop listeners, hide dashboard, sign out |
 
-## Owner permissions (test against a non-production database first)
-
-| Operation | Expected result |
+## Read-only monitoring
+| Case | Expected result |
 |---|---|
-| Read POS records | Allow verified Owner |
-| Create/edit/cancel orders | Allow verified Owner, subject to existing POS business rules |
-| Record/reverse payments | Allow verified Owner, with audit trail and correct balance calculations |
-| Edit products/services and inventory | Allow verified Owner; stock calculations must reconcile |
-| Manage customers, expenses, and shifts | Allow verified Owner |
-| View reports and activity log | Allow verified Owner |
-| Add/remove Staff accounts | Allow verified Owner through the supported Auth/role flow |
-| Change Owner password | Allow only after reauthentication |
-| Access as Staff or unauthenticated user | Deny Owner-only functions |
+| Staff creates or updates an order | iPhone dashboard updates without manual refresh |
+| Payment is recorded | Collections and outstanding balance update |
+| Inventory changes | Stock and low-stock indicators update |
+| Expense is recorded | Expense view updates |
+| Network disconnects | Show stale/offline state; do not claim live sync |
+| Network reconnects | Firestore snapshots restore current data |
+| Unknown or incomplete chunk document | Do not parse partial JSON as a valid record |
 
-## Regression tests
+## Clear Operational Data
+| Case | Expected result |
+|---|---|
+| Non-Owner or logged-out user triggers clear | Deny; no writes |
+| Owner is offline or listener is not live | Deny; no writes |
+| Owner confirms clear | Download JSON backup first |
+| Clear generation commits | Clear only orders, inventory, deleted orders, activity log |
+| Customer/expense/service/machine/account/printer data | Remains unchanged |
+| Staff device reconnects with older generation | Stale operational data must not reappear |
 
-- Android Staff can still sign in and perform normal order/payment/inventory workflows.
-- Android Staff Firestore writes remain allowed under the existing intended rules.
-- Receipt printing still completes once and in the existing sequence.
+## Regression protections
+- Android Staff can still sign in and complete normal order/payment/inventory workflows.
+- Receipt printing still completes once and in its existing sequence.
 - Cash drawer still triggers only through its existing authorized Staff POS action.
-- Android APK source and build workflow are unchanged.
-- iOS Owner edits sync to the same verified records without duplicate or lost transactions.
-- Concurrent Android/iOS edits are tested for conflict and data-loss behavior.
-- iOS reconnect and offline/stale status are clear.
-
-## Critical warning
-
-Do not deploy newly invented Firestore rules over the live project. First inspect and back up deployed rules and test the complete Staff/Owner permission matrix in a non-production environment.
+- No changes to Android printer bridge, receipt flow or cash-drawer trigger are included in this iOS PR.
+- Production sync and accounting must be verified against real records; static checks and emulator tests alone are insufficient.
