@@ -1,44 +1,55 @@
-# La Princesa Owner POS — Security & Regression Test Matrix
+# La Princesa iOS Owner Monitoring — Security & Regression Test Matrix
 
-Status: planned tests; no live Firebase project or deployed Firestore rules have been verified.
+Status: implementation tests pass in GitHub Actions; live Firebase and physical iPhone tests remain pending.
 
-## Authentication tests
+## Authentication
 
 | Case | Expected result |
 |---|---|
 | Firebase config missing | Login disabled; dashboard hidden |
 | Invalid credentials | Login rejected |
-| Staff account signs in to iOS Owner | Server role lookup returns staff; sign out and deny |
-| Authenticated account has no role document | Deny; no first-Owner bootstrap |
-| Existing server role document says Owner | Allow Owner POS |
-| Role lookup denied, offline, or server unavailable | Fail closed; do not trust cached role |
-| User logs out | Hide Owner dashboard and clear authenticated session |
+| Staff account signs in | Server role lookup denies access and signs out |
+| Missing Owner role document | Deny; no first-Owner bootstrap |
+| Existing server role says Owner | Allow monitoring dashboard |
+| Role lookup fails/offline | Fail closed; do not trust cached role |
+| Owner logs out | Hide dashboard and end authenticated session |
 
-## Owner permissions (test against a non-production database first)
+## Monitoring-only behavior
 
-| Operation | Expected result |
+| Case | Expected result |
 |---|---|
-| Read POS records | Allow verified Owner |
-| Create/edit/cancel orders | Allow verified Owner, subject to existing POS business rules |
-| Record/reverse payments | Allow verified Owner, with audit trail and correct balance calculations |
-| Edit products/services and inventory | Allow verified Owner; stock calculations must reconcile |
-| Manage customers, expenses, and shifts | Allow verified Owner |
-| View reports and activity log | Allow verified Owner |
-| Add/remove Staff accounts | Allow verified Owner through the supported Auth/role flow |
-| Change Owner password | Allow only after reauthentication |
-| Access as Staff or unauthenticated user | Deny Owner-only functions |
+| New Staff order/payment syncs | Owner dashboard updates through Firestore snapshot listener |
+| Inventory or activity changes | Owner view updates without manual refresh |
+| Owner opens dashboard | Can read sales, orders, collections, balances, expenses, inventory, customers, and activity |
+| Owner tries to create/edit an order | No such control or action exists |
+| Owner tries to edit products/inventory or record payment | No such control or action exists |
+| Printer / receipt / cash drawer | No controls or hardware bridge in the iOS app |
 
-## Regression tests
+## Clear Operational Data
 
-- Android Staff can still sign in and perform normal order/payment/inventory workflows.
-- Android Staff Firestore writes remain allowed under the existing intended rules.
-- Receipt printing still completes once and in the existing sequence.
+| Case | Expected result |
+|---|---|
+| Staff user attempts Clear Data | Not available; access denied |
+| Owner cancels confirmation | No database changes |
+| Device is offline | Clear Data is blocked; no database changes |
+| Backup is offered | JSON backup includes only the four clearable operational datasets |
+| Owner confirms Clear Data | Atomic generation increment and four empty root markers |
+| Obsolete chunks exist | Only chunks for the four clearable keys are deleted |
+| Customers / Expenses / Services / Machines exist | All remain unchanged |
+| Owner/Staff accounts and printer settings exist | All remain unchanged |
+| Staff device has stale offline operational writes | Old generation writes are rejected after reconnect |
+| New Staff order after clear | Accepted with current generation and visible to Owner |
+
+## Regression / release checks
+
+- Android Staff order creation, payments, inventory deduction, shifts, and normal cloud sync remain functional.
+- Gross Sales and Net Sales reconcile with Staff POS using the same order/payment definitions.
+- Receipt printing completes once in its existing sequence.
 - Cash drawer still triggers only through its existing authorized Staff POS action.
-- Android APK source and build workflow are unchanged.
-- iOS Owner edits sync to the same verified records without duplicate or lost transactions.
-- Concurrent Android/iOS edits are tested for conflict and data-loss behavior.
-- iOS reconnect and offline/stale status are clear.
+- No Android printer, receipt, cash-drawer, or order-processing code is changed by PR #30.
+- Reconnect and stale/offline status are clear.
+- Test on a physical iPhone before production release.
 
 ## Critical warning
 
-Do not deploy newly invented Firestore rules over the live project. First inspect and back up deployed rules and test the complete Staff/Owner permission matrix in a non-production environment.
+PR #37 contains the matching Staff generation barrier and Firestore rules, but remains a draft. Do not deploy or use synchronized Clear Data in production until those dependencies are reviewed, merged, and deployed to the correct Firebase project with explicit Owner approval.
