@@ -3792,10 +3792,13 @@ L.logout=function(){
 };
 L.msg=function(e){
  var c=e&&e.code||'';
+ if(c==='lp/timeout-auth')return'Matagal sumagot ang Firebase Authentication. Suriin ang internet at subukang muli.';
+ if(c==='lp/timeout-role')return'Nag-login ka, pero hindi sumagot ang Firebase sa pagkuha ng Owner/Staff role. Suriin ang Firestore Rules at roles/{UID}.';
+ if(c==='lp/timeout-data')return'Nakuha ang account pero hindi matapos kunin ang shop data. Suriin ang Firestore Rules, internet at koneksiyon sa database.';
  if(/invalid-credential|user-not-found|wrong-password|invalid-email|missing-password/.test(c))return'Mali ang username/email o password.';
  if(c.indexOf('too-many')>=0)return'Masyadong maraming subok. Maghintay ng ilang minuto.';
- if(c.indexOf('network')>=0||c==='unavailable')return'Walang internet. Kailangan ng internet sa unang login sa device na ito.';
- if(c.indexOf('permission')>=0)return'Walang pahintulot sa database. Siguraduhing nailagay na ang Firestore rules.';
+ if(c.indexOf('network')>=0||c==='unavailable')return'Walang internet o hindi maabot ang Firebase. Suriin ang koneksiyon at subukang muli.';
+ if(c.indexOf('permission')>=0)return'Walang pahintulot sa database. Kailangang itama at i-deploy ang Firestore Rules sa tamang Firebase project.';
  if(c.indexOf('email-already')>=0)return'May gumagamit na ng username na iyan.';
  if(c.indexOf('weak')>=0)return'Ang password ay dapat 6 character o higit pa.';
  if(c.indexOf('requires-recent')>=0)return'Mag-login ulit bago palitan ang password.';
@@ -4023,21 +4026,30 @@ function viewForgotCloud(){
   LPCloud.reset(v).then(function(){viewLogin('Naipadala na ang reset link. Tingnan ang email mo.')},function(e){busy(go,false);err(LPCloud.msg(e))});
  };
 }
+function cloudStage(promise,code,ms){
+ return Promise.race([promise,new Promise(function(_,reject){
+  setTimeout(function(){var e=new Error(code);e.code=code;reject(e)},ms);
+ })]);
+}
 function enter(user){
  var again=sessionStorage.getItem('lp_rl');sessionStorage.removeItem('lp_rl');
- viewLoading('Kinukuha ang data ng shop...');
- return LPCloud.role(user).then(function(r){
+ viewLoading('Sinusuri ang Owner/Staff access...');
+ return cloudStage(LPCloud.role(user),'lp/timeout-role',20000).then(function(r){
   if(!r){return LPCloud.logout().then(function(){viewLogin('Walang access ang account na ito. Hilingin sa Owner na idagdag ka.')})}
   cs={u:r.username||user.email,role:r.role};
-  return LPCloud.hydrate().then(function(res){
+  viewLoading('Kinukuha ang data ng shop...');
+  return cloudStage(LPCloud.hydrate(),'lp/timeout-data',30000).then(function(res){
    if(res.changed&&!again){sessionStorage.setItem('lp_rl','1');location.reload();return}
    unlock();
   });
  });
 }
 function startCloud(){
- viewLoading('Sandali lang...');
- LPCloud.ready().then(function(user){if(!user){viewLogin();return}return enter(user)}).catch(function(e){viewCloudError(e)});
+ viewLoading('Kumokonekta sa Firebase...');
+ cloudStage(LPCloud.ready(),'lp/timeout-auth',20000).then(function(user){
+  if(!user){viewLogin();return}
+  return enter(user);
+ }).catch(function(e){viewCloudError(e)});
 }
 function localAccounts(s){
  if(!s||s.role!=='owner'){toast('Owner account lang ang puwedeng mag-manage ng staff.');return}
