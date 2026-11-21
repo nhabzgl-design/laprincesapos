@@ -3907,9 +3907,22 @@ window.__LP_AUTH_PRINT_RECEIPT=async function(order){
  if(locks[id])return false;
  locks[id]=true;
  try{
-  // An authenticated Staff POS session is sufficient to print its own receipt.
-  // Do not ask for the Owner password again for every receipt.
-  lpLog({event:'receipt_print_authorization',origin:'staff_pos_session',transactionId:id,amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:'allowed'});
+  // Require the currently signed-in Staff member's own password for every receipt.
+  // This records exactly which Staff member authorized the print in Activity Log.
+  if(s.role!=='staff'){
+   lpLog({event:'receipt_print_authorization',origin:'staff_password',transactionId:id,amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:'denied',reason:'staff_role_required'});
+   window.alert('Staff account lamang ang maaaring mag-authorize ng Staff POS receipt printing.');
+   return false;
+  }
+  var staffPassword=window.prompt('STAFF PRINT AUTHORIZATION\\nIlagay ang sariling password ni '+s.u+' para maitala sa Activity Log:');
+  if(staffPassword===null)return false;
+  var passwordOK=false;
+  try{passwordOK=!!(window.__LP_VERIFY_LOGIN&&await window.__LP_VERIFY_LOGIN(s.u,staffPassword))}finally{staffPassword=''}
+  lpLog({event:'receipt_print_authorization',origin:'staff_password',transactionId:id,amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:passwordOK?'success':'failure'});
+  if(!passwordOK){
+   window.alert('Mali ang Staff password. Hindi pinayagan ang pag-print.');
+   return false;
+  }
   var key='laPrincesa_receipt_state_v1',states={};try{states=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){}
   states[id]=states[id]||{};
   if(states[id].printed){
