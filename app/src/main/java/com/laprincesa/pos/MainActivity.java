@@ -480,6 +480,9 @@ public class MainActivity extends AppCompatActivity {
                     ws.setUseWideViewPort(false);
                     ws.setLoadWithOverviewMode(false);
                     renderer.setBackgroundColor(Color.WHITE);
+                    // Force software composition so WebView.draw(Canvas) produces receipt pixels
+                    // when the off-screen renderer is captured into the thermal-printer bitmap.
+                    renderer.setLayerType(View.LAYER_TYPE_SOFTWARE, null);
                     renderer.setVerticalScrollBarEnabled(false);
                     renderer.setHorizontalScrollBarEnabled(false);
                     renderer.setAlpha(1f);
@@ -505,7 +508,7 @@ public class MainActivity extends AppCompatActivity {
                         public void onPageFinished(WebView view, String url) {
                             if (handled) return;
                             handled = true;
-                            view.evaluateJavascript("String(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight))", value -> {
+                            view.postVisualStateCallback(System.nanoTime(), requestId -> view.postDelayed(() -> view.evaluateJavascript("String(Math.max(document.body.scrollHeight,document.documentElement.scrollHeight,document.getElementById('lp-print-root') ? document.getElementById('lp-print-root').scrollHeight : 0))", value -> {
                                 byte[] data = null;
                                 String renderFailure = null;
                                 Bitmap raster = null;
@@ -575,7 +578,7 @@ public class MainActivity extends AppCompatActivity {
                                     }
                                     finishReceiptPrint(success, failure);
                                 }, "ReceiptPrintWorker").start();
-                            });
+                            }), 180));
                         }
                     });
                     renderer.loadDataWithBaseURL("https://localhost/", html, "text/html", "UTF-8", null);
