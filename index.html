@@ -3956,11 +3956,11 @@ window.__LP_AUTH_PRINT_RECEIPT=async function(order){
   }else if(String(order.payMethod||'').trim().toLowerCase()==='cash'){
    cashAmount=Math.max(0,Number(order.collected!=null?order.collected:order.paid)||0);
   }
-  // Open for positive Cash payments, and also for fully Unpaid orders recorded as Cash.
-  // Unpaid GCash/Maya and non-cash-only payments do not open the drawer.
-  var unpaidCashOrder=!paymentEntries&&String(order.payMethod||'').trim().toLowerCase()==='cash'&&lpFin(order).status==='Unpaid';
+  // Open for any Unpaid order before its first receipt, as explicitly required.
+  // Paid GCash/Maya/non-cash-only orders do not open the drawer.
+  var unpaidOrder=lpFin(order).status==='Unpaid';
   // A failed command may be retried deliberately; a sent command is never pulsed twice.
-  if((cashAmount>0||unpaidCashOrder)&&states[id].drawerResult!=='command_sent'){
+  if((cashAmount>0||unpaidOrder)&&states[id].drawerResult!=='command_sent'){
    states[id].drawerAttempted=true;
    states[id].drawerAttempts=(Number(states[id].drawerAttempts)||0)+1;
    states[id].drawerAt=new Date().toISOString();
@@ -3969,7 +3969,7 @@ window.__LP_AUTH_PRINT_RECEIPT=async function(order){
    try{drawerSent=!!(window.BTP&&await window.BTP.drawer({authorized:true}))}catch(drawerError){drawerSent=false}
    states[id].drawerResult=drawerSent?'command_sent':'failed';
    localStorage.setItem(key,JSON.stringify(states));
-   lpLog({event:'drawer',origin:unpaidCashOrder?'automatic_before_first_unpaid_cash_receipt':'automatic_before_first_cash_receipt',transactionId:id,amount:cashAmount,paymentMethod:unpaidCashOrder?'Cash (Unpaid order)':'Cash',result:drawerSent?'command_sent':'failed'});
+   lpLog({event:'drawer',origin:unpaidOrder?'automatic_before_first_unpaid_receipt':'automatic_before_first_cash_receipt',transactionId:id,amount:cashAmount,paymentMethod:unpaidCashOrder?'Cash (Unpaid order)':'Cash',result:drawerSent?'command_sent':'failed'});
    if(!drawerSent){
     window.alert('Hindi naipadala ang cash drawer command. Hindi muna ipi-print ang cash receipt. Tingnan ang printer connection at subukan muli.');
     return false;
