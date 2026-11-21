@@ -3914,7 +3914,7 @@ window.__LP_AUTH_PRINT_RECEIPT=async function(order){
  var cashAmount=0;
  if(paymentEntries){
   paymentEntries.forEach(function(payment){
-   if(String(payment&&payment.method||order.payMethod||'').trim().toLowerCase()==='cash')cashAmount+=Math.max(0,Number(payment&&payment.amount)||0);
+   if(String(payment&&payment.method||'').trim().toLowerCase()==='cash')cashAmount+=Math.max(0,Number(payment&&payment.amount)||0);
   });
  }else if(String(order.payMethod||'').trim().toLowerCase()==='cash'){
   cashAmount=Math.max(0,Number(order.collected!=null?order.collected:order.paid)||0);
