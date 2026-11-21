@@ -3969,7 +3969,7 @@ window.__LP_AUTH_PRINT_RECEIPT=async function(order){
    try{drawerSent=!!(window.BTP&&await window.BTP.drawer({authorized:true}))}catch(drawerError){drawerSent=false}
    states[id].drawerResult=drawerSent?'command_sent':'failed';
    localStorage.setItem(key,JSON.stringify(states));
-   lpLog({event:'drawer',origin:unpaidOrder?'automatic_before_first_unpaid_receipt':'automatic_before_first_cash_receipt',transactionId:id,amount:cashAmount,paymentMethod:unpaidCashOrder?'Cash (Unpaid order)':'Cash',result:drawerSent?'command_sent':'failed'});
+   lpLog({event:'drawer',origin:unpaidOrder?'automatic_before_first_unpaid_receipt':'automatic_before_first_cash_receipt',transactionId:id,amount:cashAmount,paymentMethod:unpaidOrder?'Unpaid ('+String(order.payMethod||'unspecified')+')':'Cash',result:drawerSent?'command_sent':'failed'});
    if(!drawerSent){
     window.alert('Hindi naipadala ang cash drawer command. Hindi muna ipi-print ang cash receipt. Tingnan ang printer connection at subukan muli.');
     return false;
