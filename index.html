@@ -3903,38 +3903,60 @@ window.__LP_SHOW_ACTIVITY_LOG=function(){
 window.__LP_AUTH_PRINT_RECEIPT=async function(order){
  var s=getSession();if(!s||!order)return false;
  var id=String(order.id||order.orderNo||'');
- // An authenticated Staff POS session is sufficient to print its own receipt.
- // Do not ask for the Owner password again for every receipt.
- lpLog({event:'receipt_print_authorization',origin:'staff_pos_session',transactionId:id,amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:'allowed'});
- var key='laPrincesa_receipt_state_v1',states={};try{states=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){}
- states[id]=states[id]||{};
- // Use the recorded payment entries so split/mixed payments open the drawer
- // only when an actual cash payment was recorded.
- var paymentEntries=Array.isArray(order.payments)&&order.payments.length?order.payments:null;
- var cashAmount=0;
- if(paymentEntries){
-  paymentEntries.forEach(function(payment){
-   if(String(payment&&payment.method||'').trim().toLowerCase()==='cash')cashAmount+=Math.max(0,Number(payment&&payment.amount)||0);
-  });
- }else if(String(order.payMethod||'').trim().toLowerCase()==='cash'){
-  cashAmount=Math.max(0,Number(order.collected!=null?order.collected:order.paid)||0);
- }
- // Open the drawer BEFORE the first receipt only when cash was actually received.
- // Mark the attempt first so a retry cannot unexpectedly pulse the drawer twice.
- if(cashAmount>0&&!states[id].drawerAttempted){
-  states[id].drawerAttempted=true;states[id].drawerAt=new Date().toISOString();
+ var locks=window.__LP_RECEIPT_PRINT_LOCKS||(window.__LP_RECEIPT_PRINT_LOCKS={});
+ if(locks[id])return false;
+ locks[id]=true;
+ try{
+  // An authenticated Staff POS session is sufficient to print its own receipt.
+  // Do not ask for the Owner password again for every receipt.
+  lpLog({event:'receipt_print_authorization',origin:'staff_pos_session',transactionId:id,amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),result:'allowed'});
+  var key='laPrincesa_receipt_state_v1',states={};try{states=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(e){}
+  states[id]=states[id]||{};
+  if(states[id].printed){
+   window.alert('Na-print na ang resibo para sa transaction na ito. Hindi na ito uulitin upang maiwasan ang duplicate receipt.');
+   return false;
+  }
+  // Use recorded payment entries so mixed payments trigger the drawer only
+  // when a positive Cash amount was actually recorded.
+  var paymentEntries=Array.isArray(order.payments)&&order.payments.length?order.payments:null;
+  var cashAmount=0;
+  if(paymentEntries){
+   paymentEntries.forEach(function(payment){
+    if(String(payment&&payment.method||'').trim().toLowerCase()==='cash')cashAmount+=Math.max(0,Number(payment&&payment.amount)||0);
+   });
+  }else if(String(order.payMethod||'').trim().toLowerCase()==='cash'){
+   cashAmount=Math.max(0,Number(order.collected!=null?order.collected:order.paid)||0);
+  }
+  // A cash receipt must not print unless the drawer command is accepted first.
+  // A failed command may be retried deliberately; a sent command is never pulsed twice.
+  if(cashAmount>0&&states[id].drawerResult!=='command_sent'){
+   states[id].drawerAttempted=true;
+   states[id].drawerAttempts=(Number(states[id].drawerAttempts)||0)+1;
+   states[id].drawerAt=new Date().toISOString();
+   localStorage.setItem(key,JSON.stringify(states));
+   var drawerSent=false;
+   try{drawerSent=!!(window.BTP&&await window.BTP.drawer({authorized:true}))}catch(drawerError){drawerSent=false}
+   states[id].drawerResult=drawerSent?'command_sent':'failed';
+   localStorage.setItem(key,JSON.stringify(states));
+   lpLog({event:'drawer',origin:'automatic_before_first_cash_receipt',transactionId:id,amount:cashAmount,paymentMethod:'Cash',result:drawerSent?'command_sent':'failed'});
+   if(!drawerSent){
+    window.alert('Hindi naipadala ang cash drawer command. Hindi muna ipi-print ang cash receipt. Tingnan ang printer connection at subukan muli.');
+    return false;
+   }
+  }
+  var printed=!!(window.printReceiptOnly&&await window.printReceiptOnly());
+  lpLog({event:'receipt_print',origin:'receipt',transactionId:id,amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),cashAmount:cashAmount,result:printed?'command_sent':'failed'});
+  if(!printed)return false;
+  states[id]=Object.assign({},states[id]||{},{printed:true,printedAt:new Date().toISOString()});
   localStorage.setItem(key,JSON.stringify(states));
-  var drawerSent=!!(window.BTP&&await window.BTP.drawer({authorized:true}));
-  states[id].drawerResult=drawerSent?'command_sent':'failed';
-  localStorage.setItem(key,JSON.stringify(states));
-  lpLog({event:'drawer',origin:'automatic_before_first_cash_receipt',transactionId:id,amount:cashAmount,paymentMethod:'Cash',result:drawerSent?'command_sent':'failed'});
+  return true;
+ }catch(printError){
+  lpLog({event:'receipt_print',origin:'receipt',transactionId:id,result:'failed',error:String(printError&&printError.message||printError)});
+  window.alert('Hindi nakumpleto ang pag-print. Suriin muna ang printer bago pindutin muli.');
+  return false;
+ }finally{
+  delete locks[id];
  }
- var printed=!!(window.printReceiptOnly&&await window.printReceiptOnly());
- lpLog({event:'receipt_print',origin:'receipt',transactionId:id,amount:Number(order.total)||0,paymentMethod:String(order.payMethod||''),cashAmount:cashAmount,result:printed?'command_sent':'failed'});
- if(!printed)return false;
- states[id]=Object.assign({},states[id]||{},{printed:true,printedAt:new Date().toISOString()});
- localStorage.setItem(key,JSON.stringify(states));
- return true;
 };
 function setSession(u,remember){var v=JSON.stringify({u:u.u});sessionStorage.removeItem(SK);localStorage.removeItem(SK);(remember?localStorage:sessionStorage).setItem(SK,v)}
 function logout(){if(cloud){var rl=function(){location.reload()};LPCloud.logout().then(rl,rl);return}sessionStorage.removeItem(SK);localStorage.removeItem(SK);location.reload()}
