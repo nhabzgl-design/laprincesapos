@@ -3395,17 +3395,33 @@ window.printReceiptOnly=async function(){
     '<style>'+appStyles+'</style>'+printBase+
     '</head><body><div id="lp-print-root">'+receiptClone.outerHTML+'</div></body></html>';
    var encoded=btoa(unescape(encodeURIComponent(html)));
-   var ok=!!window.NativePrinter.printHtmlBase64(encoded,receiptWidth);
-   if(!ok){toast('Hindi naipadala ang formatted receipt. Suriin ang printer connection.');return false}
+   // Register the native completion callback BEFORE sending the command.
+   // Android can finish a fast render/print on the UI thread before the bridge
+   // call returns; registering afterward can lose that callback and report a
+   // false print failure even though the receipt was already sent.
    return await new Promise(function(resolve){
     var settled=false;
-    var timer=setTimeout(function(){if(settled)return;settled=true;window.__lpNativeReceiptDone=null;toast('Walang kumpirmasyon mula sa printer. Suriin kung kumpleto ang resibo bago ulitin.');resolve(false)},180000);
-    window.__lpNativeReceiptDone=function(success,message){
+    var timer=setTimeout(function(){
      if(settled)return;
-     settled=true;clearTimeout(timer);window.__lpNativeReceiptDone=null;
+     settled=true;
+     if(window.__lpNativeReceiptDone===onDone)window.__lpNativeReceiptDone=null;
+     toast('Walang kumpirmasyon mula sa printer. Suriin muna kung may lumabas na resibo bago subukang muli.');
+     resolve(false);
+    },180000);
+    function finish(success,message){
+     if(settled)return;
+     settled=true;
+     clearTimeout(timer);
+     if(window.__lpNativeReceiptDone===onDone)window.__lpNativeReceiptDone=null;
      if(!success&&message)toast(message);
      resolve(!!success);
-    };
+    }
+    function onDone(success,message){finish(success,message)}
+    window.__lpNativeReceiptDone=onDone;
+    var accepted=false;
+    try{accepted=!!window.NativePrinter.printHtmlBase64(encoded,receiptWidth)}
+    catch(sendError){finish(false,'Hindi naipadala ang formatted receipt: '+(sendError&&sendError.message||sendError));return}
+    if(!accepted)finish(false,'Hindi tinanggap ng Android printer bridge ang receipt command. Suriin ang printer connection.');
    });
   }catch(e){toast('Receipt render error: '+(e&&e.message||e));return false}
  }
