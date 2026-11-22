@@ -3956,11 +3956,10 @@ window.__LP_AUTH_PRINT_RECEIPT=async function(order){
   }else if(String(order.payMethod||'').trim().toLowerCase()==='cash'){
    cashAmount=Math.max(0,Number(order.collected!=null?order.collected:order.paid)||0);
   }
-  // Open for any Unpaid order before its first receipt, as explicitly required.
-  // Paid GCash/Maya/non-cash-only orders do not open the drawer.
-  var unpaidOrder=lpFin(order).status==='Unpaid';
+  // Open the drawer only when a positive Cash payment was actually recorded.
+  // Unpaid orders and GCash/Maya-only payments must never trigger the drawer.
   // A failed command may be retried deliberately; a sent command is never pulsed twice.
-  if((cashAmount>0||unpaidOrder)&&states[id].drawerResult!=='command_sent'){
+  if(cashAmount>0&&states[id].drawerResult!=='command_sent'){
    states[id].drawerAttempted=true;
    states[id].drawerAttempts=(Number(states[id].drawerAttempts)||0)+1;
    states[id].drawerAt=new Date().toISOString();
@@ -3969,7 +3968,7 @@ window.__LP_AUTH_PRINT_RECEIPT=async function(order){
    try{drawerSent=!!(window.BTP&&await window.BTP.drawer({authorized:true}))}catch(drawerError){drawerSent=false}
    states[id].drawerResult=drawerSent?'command_sent':'failed';
    localStorage.setItem(key,JSON.stringify(states));
-   lpLog({event:'drawer',origin:unpaidOrder?'automatic_before_first_unpaid_receipt':'automatic_before_first_cash_receipt',transactionId:id,amount:cashAmount,paymentMethod:unpaidOrder?'Unpaid ('+String(order.payMethod||'unspecified')+')':'Cash',result:drawerSent?'command_sent':'failed'});
+   lpLog({event:'drawer',origin:'automatic_before_first_cash_receipt',transactionId:id,amount:cashAmount,paymentMethod:'Cash',result:drawerSent?'command_sent':'failed'});
    if(!drawerSent){
     // Drawer failure must not block the receipt printer. The drawer attempt
     // is logged above; continue with the receipt so UNPAID orders can print.
